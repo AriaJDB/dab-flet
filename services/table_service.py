@@ -120,3 +120,20 @@ def obtener_datos(base_datos, tabla):
     finally:
         cursor.close()
         conn.close()
+
+def eliminar_registro(database, tabla, id_valor):
+    conn = conectar()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(f"USE {database}")
+        # Usamos %s para evitar inyección SQL, es más profesional
+        query = f"DELETE FROM {tabla} WHERE id = %s"
+        cursor.execute(query, (id_valor,))
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"ERROR AL ELIMINAR REGISTRO: {e}")
+        return False
+    finally:
+        cursor.close()
+        conn.close()

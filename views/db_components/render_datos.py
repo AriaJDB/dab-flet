@@ -7,7 +7,6 @@ def get_datos_ui(db, tabla, es_admin, permisos, ir_a_nivel, get_style, cache, pa
     data = datos_filtrados if datos_filtrados is not None else obtener_datos(db, tabla)
     if datos_filtrados is None: cache["datos"] = data
 
-    # --- Lógica del Modal de Inserción ---
     def abrir_modal_insertar(e):
         campos_input = {}
         columnas_layout = ft.Column(spacing=15, tight=True, scroll=ft.ScrollMode.ADAPTIVE)
@@ -26,32 +25,25 @@ def get_datos_ui(db, tabla, es_admin, permisos, ir_a_nivel, get_style, cache, pa
                     keyboard_type=ft.KeyboardType.NUMBER
                 )
             
-            # 2. VARCHAR / TEXT (Limitado a 50 si es varchar)
             elif "VARCHAR" in tipo_col:
                 input_ctrl = ft.TextField(
                     label=f"{nombre_col} (Max 50)",
-                    max_length=50, # Esto activará el contador automáticamente de forma correcta
-                    # Eliminamos counter_text para evitar el TypeError
+                    max_length=50,
                 )
             
-            # 3. FECHA (DATE)
-            # 3. FECHA (DATE)
             elif "DATE" in tipo_col:
                 tf_fecha = ft.TextField(label=f"{nombre_col} (YYYY-MM-DD)", read_only=True, expand=True)
                 
                 def confirmar_fecha(e_date):
-                    # Flet devuelve un objeto datetime, lo formateamos a string para SQL
                     if e_date.control.value:
                         tf_fecha.value = e_date.control.value.strftime('%Y-%m-%d')
                         page.update()
 
-                # Creamos el picker
                 datepicker = ft.DatePicker(
                     on_change=confirmar_fecha,
                 )
                 page.overlay.append(datepicker)
                 
-                # Función para abrir el picker (Forma moderna)
                 def abrir_picker(e):
                     datepicker.open = True
                     page.update()
@@ -61,21 +53,17 @@ def get_datos_ui(db, tabla, es_admin, permisos, ir_a_nivel, get_style, cache, pa
                     ft.IconButton(ft.Icons.CALENDAR_MONTH, on_click=abrir_picker)
                 ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
                 
-                # Guardamos la referencia para el guardado final
                 input_ctrl.data = tf_fecha
 
-            # 4. BOOLEANO (BOOLEAN / TINYINT)
             elif "BOOL" in tipo_col or "TINYINT(1)" in tipo_col:
                 input_ctrl = ft.Switch(label=f"{nombre_col} (Falso/Verdadero)", value=False)
 
-            # 5. FLOTANTE (FLOAT / DECIMAL)
             elif "FLOAT" in tipo_col or "DECIMAL" in tipo_col:
                 input_ctrl = ft.TextField(
                     label=f"{nombre_col} (Decimal)",
                     input_filter=ft.InputFilter(allow=True, regex_string=r"^[0-9]*\.?[0-9]*$", replacement_string="")
                 )
             
-            # Default para otros tipos
             else:
                 input_ctrl = ft.TextField(label=f"{nombre_col} ({tipo_col})")
 
@@ -85,12 +73,11 @@ def get_datos_ui(db, tabla, es_admin, permisos, ir_a_nivel, get_style, cache, pa
         def guardar_nuevo_registro(e):
             dict_final = {}
             for nom, ctrl in campos_input.items():
-                # Extraer valor según el tipo de control usado
-                if isinstance(ctrl, ft.Row): # Es el DatePicker
+                if isinstance(ctrl, ft.Row):
                     dict_final[nom] = ctrl.data.value
-                elif isinstance(ctrl, ft.Switch): # Es Booleano
+                elif isinstance(ctrl, ft.Switch):
                     dict_final[nom] = 1 if ctrl.value else 0
-                else: # Es TextField normal
+                else:
                     dict_final[nom] = ctrl.value
 
             try:
@@ -114,7 +101,6 @@ def get_datos_ui(db, tabla, es_admin, permisos, ir_a_nivel, get_style, cache, pa
         dialogo.open = True
         page.update()
 
-    # --- UI de la parte superior ---
     controls.append(ft.Row([
         ft.ElevatedButton(
             "Insertar Fila", 

@@ -2,13 +2,12 @@ import subprocess
 import os
 from dotenv import load_dotenv
 
-load_dotenv() # Carga el archivo .env
+load_dotenv()
 
 RUTA_DUMP = os.getenv("DB_DUMP_PATH", "mariadb-dump")
 RUTA_MYSQL = os.getenv("DB_CLI_PATH", "mariadb")
 
 def hacer_backup(database, user, password, ruta_archivo):
-    # Verificación de seguridad: ¿Existe el ejecutable?
     if not os.path.exists(RUTA_DUMP):
         print(f"Error: No se encontró el ejecutable en {RUTA_DUMP}")
         return False

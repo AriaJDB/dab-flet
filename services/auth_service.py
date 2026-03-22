@@ -1,7 +1,5 @@
 import mysql.connector
 
-
-# 🔐 intentar login
 def login(username, password):
     try:
         conn = mysql.connector.connect(
@@ -17,7 +15,6 @@ def login(username, password):
         return False
 
 
-# 🧠 obtener privilegios
 def obtener_privilegios(admin_user, admin_pass, username):
     try:
         conn = mysql.connector.connect(

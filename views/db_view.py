@@ -23,7 +23,6 @@ def db_view(page: ft.Page, session_data):
     breadcrumb_row = ft.Row(spacing=5, vertical_alignment=ft.CrossAxisAlignment.CENTER)
     main_content = ft.Column(spacing=10, scroll=ft.ScrollMode.ADAPTIVE)
     
-    # --- Alertas Corregidas ---
     txt_mensaje = ft.Text("", size=14, weight=ft.FontWeight.W_500)
     msg_container = ft.Container(
         content=ft.Row([ft.Icon(ft.Icons.INFO_OUTLINE, size=20), txt_mensaje], spacing=10),

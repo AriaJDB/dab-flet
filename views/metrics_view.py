@@ -3,157 +3,178 @@ from services.metrics_service import *
 import time
 import asyncio
 
-def metrics_view(page: ft.Page):
-    # 🚫 Singleton para evitar duplicar hilos
-    if hasattr(page, "metrics_view_instance"):
-        return page.metrics_view_instance
-    
-    # --- Controles de Texto (KPIs) ---
-    conexiones_val = ft.Text("0", size=30, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_700)
-    qps_val = ft.Text("0.0", size=30, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_700)
 
-    # --- Contenedor de Gráfica ---
-    # Usaremos un Row con alineación inferior para que las barras crezcan hacia arriba
-    grafica_container = ft.Row(
-        spacing=8, 
-        alignment=ft.MainAxisAlignment.START, 
-        vertical_alignment=ft.CrossAxisAlignment.END,
-        height=200
+def metrics_view(page: ft.Page):
+    
+
+    # 🧠 --- ESTADO GLOBAL (NO SE REINICIA) ---
+    if not hasattr(page, "metrics_state"):
+        page.metrics_state = {
+            "conexiones_data": [],
+            "queries_data": [],
+            "last_queries": None,
+            "last_time": None
+        }
+
+    state = page.metrics_state
+
+    # --- VALORES UI ---
+    conexiones_val = ft.Text("0", size=32, weight="bold")
+    qps_val = ft.Text("0.0", size=32, weight="bold")
+    threads_val = ft.Text("0", size=22, weight="bold")
+    bytes_in_val = ft.Text("0", size=22, weight="bold")
+    bytes_out_val = ft.Text("0", size=22, weight="bold")
+    slow_val = ft.Text("0", size=22, weight="bold")
+
+    # --- CHART ---
+    chart = ft.Row(
+        height=220,
+        spacing=2,
+        alignment=ft.MainAxisAlignment.END,
+        vertical_alignment=ft.CrossAxisAlignment.END
     )
 
-    conexiones_data = []
-    queries_data = []
-    last_queries = None
-    last_time = None
-
-    def crear_barra(valor, color, tooltip):
-        # Normalizamos la altura (ej. valor * 10) para que sea visible
-        altura = max(2, min(valor * 10, 150)) 
+    def crear_punto(valor, color):
         return ft.Container(
-            width=12,
-            height=altura,
+            width=4,
+            height=max(2, min(valor * 8, 180)),
             bgcolor=color,
-            border_radius=ft.BorderRadius(5, 5, 0, 0),
-            tooltip=f"{tooltip}: {valor}"
+            border_radius=2
         )
 
-    def actualizar_interfaz():
-        grafica_container.controls.clear()
-        
-        for i in range(len(conexiones_data)):
-            c_val = conexiones_data[i]
-            q_val = queries_data[i]
+    def actualizar_chart():
+        chart.controls.clear()
 
-            grafica_container.controls.append(
-                ft.Column([
-                    crear_barra(q_val, ft.Colors.GREEN_400, "QPS"),
-                    crear_barra(c_val, ft.Colors.BLUE_400, "Conexiones"),
-                ], spacing=2, alignment=ft.MainAxisAlignment.END)
+        for i in range(len(state["conexiones_data"])):
+            chart.controls.append(
+                ft.Column(
+                    [
+                        crear_punto(state["queries_data"][i], ft.Colors.GREEN_400),
+                        crear_punto(state["conexiones_data"][i], ft.Colors.BLUE_400),
+                    ],
+                    spacing=2,
+                    alignment=ft.MainAxisAlignment.END
+                )
             )
+
         page.update()
 
+    # 🔁 LOOP PRINCIPAL
     async def loop():
-        nonlocal last_queries, last_time
         while True:
             try:
-                # Consultar servicios
                 conexiones = obtener_conexiones()
                 queries = obtener_queries()
+                threads = obtener_threads_running()
+                bytes_in, bytes_out = obtener_bytes()
+                slow = obtener_slow_queries()
+
                 now = time.time()
 
-                # Lógica de cálculo QPS
-                if last_queries is not None:
-                    delta_q = queries - last_queries
-                    delta_t = now - last_time
+                # 📊 QPS
+                if state["last_queries"] is not None:
+                    delta_q = queries - state["last_queries"]
+                    delta_t = now - state["last_time"]
                     qps = delta_q / delta_t if delta_t > 0 else 0
                 else:
                     qps = 0
 
-                # Actualizar listas de datos (Historial de 20 puntos)
-                conexiones_data.append(conexiones)
-                queries_data.append(qps)
-                conexiones_data[:] = conexiones_data[-20:]
-                queries_data[:] = queries_data[-20:]
+                # 📈 HISTÓRICO
+                state["conexiones_data"].append(conexiones)
+                state["queries_data"].append(qps)
 
-                # Actualizar valores de los textos
+                state["conexiones_data"][:] = state["conexiones_data"][-40:]
+                state["queries_data"][:] = state["queries_data"][-40:]
+
+                # 🧾 ACTUALIZAR UI
                 conexiones_val.value = str(conexiones)
                 qps_val.value = str(round(qps, 2))
+                threads_val.value = str(threads)
+                bytes_in_val.value = str(bytes_in)
+                bytes_out_val.value = str(bytes_out)
+                slow_val.value = str(slow)
 
-                last_queries = queries
-                last_time = now
+                state["last_queries"] = queries
+                state["last_time"] = now
 
-                actualizar_interfaz()
+                actualizar_chart()
 
             except Exception as e:
-                print(f"Error en Métricas: {e}")
-            
+                print("Error métricas:", e)
+
             await asyncio.sleep(2)
 
-    # Iniciar la tarea asíncrona usando el nuevo método de Flet
+    # 🚀 INICIAR SOLO UNA VEZ
     if not hasattr(page, "metrics_task_started"):
         page.run_task(loop)
         page.metrics_task_started = True
 
-    # --- DISEÑO DEL DASHBOARD ---
-    view = ft.Column([
-        # Título
-        ft.Row([
-            ft.Column([
-                ft.Text("Estado del Servidor", size=28, weight=ft.FontWeight.BOLD),
-                ft.Text("Monitoreo en tiempo real de tráfico y sesiones", color=ft.Colors.BLUE_GREY_400),
-            ])
+    # 🎨 THEME
+    is_dark = page.theme_mode == ft.ThemeMode.DARK
+    card_bg = ft.Colors.SURFACE_CONTAINER_HIGHEST if is_dark else ft.Colors.WHITE
+
+    # 🧩 COMPONENTE CARD
+    def card(titulo, control, color):
+        return ft.Container(
+            content=ft.Column([
+                ft.Text(titulo, size=12),
+                control
+            ]),
+            padding=15,
+            border_radius=12,
+            bgcolor=card_bg,
+            expand=True
+        )
+
+    # --- UI FINAL ---
+    return ft.Column([
+
+        # HEADER
+        ft.Column([
+            ft.Text("Métricas del Servidor", size=28, weight="bold"),
+            ft.Text("Monitoreo en tiempo real estilo dashboard", color=ft.Colors.BLUE_GREY_400),
         ]),
 
         ft.Divider(height=20, color=ft.Colors.TRANSPARENT),
 
-        # Fila de Tarjetas de Resumen (KPIs)
+        # 🔥 KPIs PRINCIPALES
         ft.Row([
-            # Card Conexiones
-            ft.Container(
-                content=ft.Column([
-                    ft.Icon(ft.Icons.LANGUAGE_ROUNDED, color=ft.Colors.BLUE_700),
-                    ft.Text("Conexiones Activas", size=14, color=ft.Colors.BLUE_GREY_500),
-                    conexiones_val
-                ], spacing=5),
-                expand=True, padding=20, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST if page.theme_mode == ft.ThemeMode.DARK else ft.Colors.WHITE, border_radius=15,
-                shadow=ft.BoxShadow(blur_radius=10, color=ft.Colors.BLACK12)
-            ),
-            # Card QPS
-            ft.Container(
-                content=ft.Column([
-                    ft.Icon(ft.Icons.SPEED_ROUNDED, color=ft.Colors.GREEN_700),
-                    ft.Text("Queries por Segundo (QPS)", size=14, color=ft.Colors.BLUE_GREY_500),
-                    qps_val
-                ], spacing=5),
-                expand=True, padding=20, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST if page.theme_mode == ft.ThemeMode.DARK else ft.Colors.WHITE, border_radius=15,
-                shadow=ft.BoxShadow(blur_radius=10, color=ft.Colors.BLACK12)
-            ),
+            card("Conexiones", conexiones_val, ft.Colors.BLUE_700),
+            card("QPS", qps_val, ft.Colors.GREEN_700),
         ], spacing=20),
 
         ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
 
-        # Card de la Gráfica
+        # 🧠 MÉTRICAS SECUNDARIAS
+        ft.Row([
+            card("Threads", threads_val, ft.Colors.ORANGE_700),
+            card("Bytes IN", bytes_in_val, ft.Colors.PURPLE_700),
+            card("Bytes OUT", bytes_out_val, ft.Colors.CYAN_700),
+            card("Slow Queries", slow_val, ft.Colors.RED_700),
+        ], spacing=20),
+
+        ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
+
+        # 📊 GRÁFICA
         ft.Container(
             content=ft.Column([
+                ft.Text("Actividad en tiempo real", weight="bold"),
+
                 ft.Row([
-                    ft.Text("Historial de Actividad", weight=ft.FontWeight.BOLD, size=18),
-                    ft.Row([
-                        ft.Container(width=10, height=10, bgcolor=ft.Colors.BLUE_400, border_radius=2),
-                        ft.Text("Conexiones", size=12),
-                        ft.Container(width=10, height=10, bgcolor=ft.Colors.GREEN_400, border_radius=2),
-                        ft.Text("QPS", size=12),
-                    ], spacing=10)
-                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                    ft.Container(width=10, height=10, bgcolor=ft.Colors.BLUE_400),
+                    ft.Text("Conexiones"),
+                    ft.Container(width=10, height=10, bgcolor=ft.Colors.GREEN_400),
+                    ft.Text("QPS"),
+                ], spacing=10),
+
                 ft.Divider(),
-                ft.Container(content=grafica_container, padding=ft.Padding.only(top=20))
+
+                chart
             ]),
             padding=25,
-            bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST if page.theme_mode == ft.ThemeMode.DARK else ft.Colors.WHITE,
             border_radius=15,
-            shadow=ft.BoxShadow(blur_radius=10, color=ft.Colors.BLACK12),
+            bgcolor=card_bg,
             expand=True
         )
-    ], expand=True, scroll=ft.ScrollMode.ADAPTIVE)
 
-    page.metrics_view_instance = view
-    return view
+    ], expand=True, scroll=ft.ScrollMode.ADAPTIVE)

@@ -7,11 +7,17 @@ from views.user_view import user_view
 from views.metrics_view import metrics_view
 
 def main(page: ft.Page):
-    # --- Configuración Inicial ---
     page.title = "LatteDB Manager"
+
+    def maximizar():
+        page.window_maximized = True
+        page.update()
+
+    page.on_connect = lambda e: maximizar()
+
     page.theme_mode = ft.ThemeMode.LIGHT
-    page.window_width = 1100
-    page.window_height = 750
+    page.window_maximized = True
+    page.window_resizable = True
     page.bgcolor = ft.Colors.BLUE_GREY_50
     page.padding = 0
 

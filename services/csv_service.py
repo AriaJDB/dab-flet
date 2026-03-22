@@ -5,7 +5,6 @@ def exportar_csv(database, tabla, ruta):
     conn = conectar()
     cursor = conn.cursor()
     try:
-        # Usamos backticks para evitar errores con nombres reservados
         cursor.execute(f"USE `{database}`")
         cursor.execute(f"SELECT * FROM `{tabla}`")
 
@@ -30,7 +29,7 @@ def importar_csv(database, tabla, ruta):
         cursor.execute(f"USE `{database}`")
         with open(ruta, "r", encoding="utf-8") as f:
             reader = csv.reader(f)
-            columnas = next(reader) # Leer la primera fila como nombres de columna
+            columnas = next(reader)
 
             placeholders = ", ".join(["%s"] * len(columnas))
             columnas_sql = ", ".join([f"`{c}`" for c in columnas])
@@ -38,7 +37,7 @@ def importar_csv(database, tabla, ruta):
             query = f"INSERT INTO `{tabla}` ({columnas_sql}) VALUES ({placeholders})"
 
             for fila in reader:
-                if any(fila): # Ignorar si la fila viene vacía
+                if any(fila):
                     cursor.execute(query, fila)
 
         conn.commit()

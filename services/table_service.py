@@ -27,7 +27,7 @@ def obtener_tablas(database):
     conn = conectar()
     cursor = conn.cursor()
 
-    cursor.execute(f"USE {database}")
+    cursor.execute(f"USE `{database}`")
     cursor.execute("SHOW TABLES")
 
     tablas = [t[0] for t in cursor.fetchall()]

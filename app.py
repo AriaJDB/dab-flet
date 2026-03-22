@@ -1,7 +1,5 @@
 import flet as ft
-
 from views.login_view import login_view
-
 from views.db_view import db_view
 from views.csv_view import csv_view
 from views.backup_view import backup_view
@@ -9,6 +7,31 @@ from views.user_view import user_view
 from views.metrics_view import metrics_view
 
 def main(page: ft.Page):
+    # --- Configuración Inicial ---
+    page.title = "LatteDB Manager"
+    page.theme_mode = ft.ThemeMode.LIGHT
+    page.window_width = 1100
+    page.window_height = 750
+    page.bgcolor = ft.Colors.BLUE_GREY_50
+    page.padding = 0
+
+    page.session_data = {"user": None, "permisos": ""}
+
+    page.dark_theme = ft.Theme(
+        color_scheme=ft.ColorScheme(
+            primary=ft.Colors.BLUE_400,
+            surface=ft.Colors.BLUE_GREY_900,
+            on_surface=ft.Colors.GREY_100,
+        ),
+    )
+    
+    page.theme = ft.Theme(
+        color_scheme=ft.ColorScheme(
+            primary=ft.Colors.BLUE_700,
+            surface=ft.Colors.WHITE,
+            on_surface=ft.Colors.BLACK,
+        ),
+    )
 
     def notificar(mensaje, color=ft.Colors.RED_700):
         page.snack_bar = ft.SnackBar(
@@ -21,42 +44,28 @@ def main(page: ft.Page):
 
     page.notificar = notificar
 
-    page.dark_theme = ft.Theme(
-        color_scheme=ft.ColorScheme(
-            primary=ft.Colors.BLUE_400,
-            surface=ft.Colors.BLUE_GREY_900,
-            on_surface=ft.Colors.GREY_100,
-            primary_container=ft.Colors.BLUE_900,
-        ),
-    )
-    
-    page.theme = ft.Theme(
-        color_scheme=ft.ColorScheme(
-            primary=ft.Colors.BLUE_700,
-            surface=ft.Colors.WHITE,
-            on_surface=ft.Colors.BLACK,
-        ),
-    )
-
-    page.title = "DB Manager Pro"
-    page.theme_mode = ft.ThemeMode.LIGHT
-    page.window_width = 1100
-    page.window_height = 750
-    page.bgcolor = ft.Colors.BLUE_GREY_50
-    page.padding = 0
-
-    usuario_actual = {"user": None, "permisos": ""}
-
     content_area = ft.Container(
         expand=True,
-        bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST if page.theme_mode == ft.ThemeMode.DARK else ft.Colors.WHITE,
-        border_radius=ft.BorderRadius(30, 0, 0, 0), # Esquina superior izquierda redondeada
+        bgcolor=ft.Colors.WHITE,
+        border_radius=ft.BorderRadius(30, 0, 0, 0),
         padding=20,
         shadow=ft.BoxShadow(blur_radius=10, color=ft.Colors.BLACK12),
-        content=ft.Column([ft.Text("Cargando Dashboard...")])
+        content=ft.Column([ft.Text("Cargando...")])
     )
 
     sidebar_items = ft.Column(spacing=5, scroll=ft.ScrollMode.ADAPTIVE)
+
+    def cambiar_tema(e):
+        page.theme_mode = ft.ThemeMode.DARK if e.control.value else ft.ThemeMode.LIGHT
+        
+        if page.theme_mode == ft.ThemeMode.DARK:
+            page.bgcolor = ft.Colors.BLUE_GREY_900
+            content_area.bgcolor = "#1e1e26"
+        else:
+            page.bgcolor = ft.Colors.BLUE_GREY_50
+            content_area.bgcolor = ft.Colors.WHITE
+        
+        page.update()
 
     def sidebar_button(text, icon, view_name):
         return ft.Container(
@@ -69,30 +78,13 @@ def main(page: ft.Page):
             on_hover=lambda e: setattr(e.control, "bgcolor", ft.Colors.BLACK12 if e.data == "true" else None) or e.control.update(),
             on_click=lambda _: cargar_vista(view_name),
         )
-    
-    def cambiar_tema(e):
-        page.theme_mode = (
-            ft.ThemeMode.DARK 
-            if page.theme_mode == ft.ThemeMode.LIGHT 
-            else ft.ThemeMode.LIGHT
-        )
-
-        
-        if page.theme_mode == ft.ThemeMode.DARK:
-            page.bgcolor = ft.Colors.BLUE_GREY_900
-            content_area.bgcolor = "#1e1e26"
-        else:
-            page.bgcolor = ft.Colors.BLUE_GREY_50
-            content_area.bgcolor = ft.Colors.WHITE
-        
-        page.update()
 
     def cargar_vista(nombre):
         content_area.content = ft.Column([ft.ProgressRing()], alignment=ft.MainAxisAlignment.CENTER)
         page.update()
 
         if nombre == "db":
-            nueva_vista = db_view(page)
+            nueva_vista = db_view(page, page.session_data)
         elif nombre == "csv":
             nueva_vista = csv_view(page)
         elif nombre == "backup":
@@ -110,79 +102,73 @@ def main(page: ft.Page):
     def mostrar_menu():
         page.controls.clear()
         sidebar_items.controls.clear()
-
-        permisos = usuario_actual["permisos"]
+        permisos = page.session_data["permisos"]
+        es_admin = "ALL PRIVILEGES" in permisos
 
         sidebar_items.controls.append(
             ft.Container(
                 content=ft.Row([
                     ft.Icon(ft.Icons.ACCOUNT_CIRCLE_ROUNDED, size=40, color=ft.Colors.BLUE_700),
                     ft.Column([
-                        ft.Text(usuario_actual['user'], weight=ft.FontWeight.BOLD, size=16),
-                        ft.Text("Administrador" if "ALL" in permisos else "Operador", size=12, color=ft.Colors.BLUE_GREY_400)
+                        ft.Text(page.session_data['user'], weight=ft.FontWeight.BOLD, size=16),
+                        ft.Text("Admin" if es_admin else "Operador", size=12, color=ft.Colors.BLUE_GREY_400)
                     ], spacing=0)
                 ]),
                 padding=ft.Padding.only(bottom=20)
             )
         )
 
-        if "ALL PRIVILEGES" in permisos:
+        sidebar_items.controls.append(sidebar_button("Explorador Datos", ft.Icons.STORAGE_ROUNDED, "db"))
+
+        if es_admin:
             sidebar_items.controls.extend([
-                sidebar_button("Bases de Datos", ft.Icons.STORAGE_ROUNDED, "db"),
                 sidebar_button("Importar CSV", ft.Icons.FILE_OPEN_ROUNDED, "csv"),
                 sidebar_button("Backups", ft.Icons.BACKUP_ROUNDED, "backup"),
                 sidebar_button("Usuarios", ft.Icons.PEOPLE_ALT_ROUNDED, "users"),
                 sidebar_button("Métricas", ft.Icons.INSERT_CHART_ROUNDED, "metrics"),
             ])
-        else:
-            if "SELECT" in permisos:
-                sidebar_items.controls.append(sidebar_button("Ver Tablas", ft.Icons.VIEW_LIST_ROUNDED, "tables"))
-            if "INSERT" in permisos:
-                sidebar_items.controls.append(sidebar_button("Insertar Datos", ft.Icons.ADD_BOX_ROUNDED, "tables"))
 
-        theme_switch = ft.ListTile(
-            leading=ft.Icon(ft.Icons.DARK_MODE_ROUNDED),
-            title=ft.Text("Modo Oscuro"),
-            trailing=ft.Switch(value=False, on_change=cambiar_tema),
-        )
-        sidebar_items.controls.append(theme_switch)
+        sidebar_items.controls.append(ft.Divider(height=20))
 
-        sidebar_items.controls.append(ft.Divider(height=30, color=ft.Colors.TRANSPARENT))
         sidebar_items.controls.append(
-            ft.Button(
-                "Cerrar Sesión", 
-                icon=ft.Icons.LOGOUT_ROUNDED, 
-                on_click=lambda _: ir_a_login(),
-                style=ft.ButtonStyle(color=ft.Colors.RED_400)
+            ft.ListTile(
+                leading=ft.Icon(ft.Icons.DARK_MODE_ROUNDED, size=20),
+                title=ft.Text("Modo Oscuro", size=14),
+                trailing=ft.Switch(
+                    value=page.theme_mode == ft.ThemeMode.DARK, 
+                    on_change=cambiar_tema
+                ),
             )
         )
 
-        layout = ft.Row(
-            [
-                ft.Container(sidebar_items, width=250, padding=20),
-                content_area
-            ],
-            expand=True,
-            spacing=0
+        sidebar_items.controls.append(
+            ft.Container(
+                content=ft.TextButton(
+                    "Cerrar Sesión", 
+                    icon=ft.Icons.LOGOUT, 
+                    on_click=lambda _: ir_a_login(),
+                    style=ft.ButtonStyle(color=ft.Colors.RED_400)
+                ),
+                padding=ft.Padding.only(top=10)
+            )
         )
+
+        layout = ft.Row([
+            ft.Container(sidebar_items, width=230, padding=20),
+            content_area
+        ], expand=True)
         
         page.add(layout)
-        cargar_vista("db" if "ALL" in permisos else "tables")
+        cargar_vista("db")
 
     def on_login(user, permisos):
-        usuario_actual["user"] = user
-        usuario_actual["permisos"] = permisos
+        page.session_data["user"] = user
+        page.session_data["permisos"] = permisos
         mostrar_menu()
 
     def ir_a_login():
         page.controls.clear()
-        page.add(
-            ft.Container(
-                content=login_view(page, on_login),
-                expand=True,
-                alignment=ft.Alignment.CENTER
-            )
-        )
+        page.add(ft.Container(login_view(page, on_login), expand=True, alignment=ft.Alignment.CENTER))
         page.update()
 
     ir_a_login()

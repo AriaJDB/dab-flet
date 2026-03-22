@@ -1,172 +1,182 @@
 import flet as ft
-from services.user_service import *
+from services.user_service import (
+    obtener_usuarios, crear_usuario, otorgar_permisos, 
+    eliminar_usuario, aplicar_cambios
+)
 from services.db_service import obtener_bases
 
 def user_view(page: ft.Page):
-    # --- Contenedores Dinámicos ---
-    lista_usuarios = ft.Column(scroll=ft.ScrollMode.ADAPTIVE, spacing=10)
-
-    # --- Inputs Estilizados ---
-    input_user = ft.TextField(
-        label="Nombre de Usuario",
-        hint_text="Ej: analista_datos",
-        width=300,
-        border_radius=10,
-        prefix_icon=ft.Icons.PERSON_ADD_ALT_1_ROUNDED
-    )
-    
-    input_pass = ft.TextField(
-        label="Contraseña",
-        password=True,
-        can_reveal_password=True, # Útil para verificar lo que escribes
-        width=300,
-        border_radius=10,
-        prefix_icon=ft.Icons.LOCK_OUTLINED
+    txt_mensaje = ft.Text("", size=14, weight=ft.FontWeight.W_500)
+    msg_container = ft.Container(
+        content=ft.Row([ft.Icon(ft.Icons.INFO_OUTLINE, size=20), txt_mensaje], spacing=10),
+        padding=10, border_radius=8, visible=False, margin=ft.margin.only(bottom=10)
     )
 
-    dropdown_db = ft.Dropdown(
-        label="Base de Datos",
-        width=300,
-        border_radius=10,
-    )
+    main_content = ft.Column(expand=True, spacing=20, scroll=ft.ScrollMode.ADAPTIVE)
 
-    dropdown_perm = ft.Dropdown(
-        label="Tipo de Permiso",
-        width=300,
-        border_radius=10,
-        options=[
-            ft.dropdown.Option("ALL PRIVILEGES"),
-            ft.dropdown.Option("SELECT"),
-            ft.dropdown.Option("INSERT"),
-            ft.dropdown.Option("UPDATE"),
-            ft.dropdown.Option("DELETE")
-        ]
-    )
-
-    # 🔄 Cargar datos
-    def cargar_datos():
-        lista_usuarios.controls.clear()
-        try:
-            usuarios = obtener_usuarios()
-            bases = obtener_bases()
-
-            dropdown_db.options = [ft.dropdown.Option(db) for db in bases]
-
-            for u in usuarios:
-                # u[0] es user, u[1] es host
-                lista_usuarios.controls.append(
-                    ft.Container(
-                        content=ft.Row([
-                            ft.Icon(ft.Icons.ACCOUNT_CIRCLE_OUTLINED, color=ft.Colors.BLUE_GREY_400),
-                            ft.Text(f"{u[0]}", weight=ft.FontWeight.BOLD, expand=True),
-                            ft.Text(f"Host: {u[1]}", color=ft.Colors.BLUE_GREY_200, size=12),
-                            ft.IconButton(
-                                icon=ft.Icons.SHIELD_OUTLINED,
-                                icon_color=ft.Colors.BLUE_400,
-                                tooltip="Ver permisos",
-                                on_click=lambda e, name=u[0]: (input_user.set_value(name), page.update())
-                            )
-                        ]),
-                        padding=ft.Padding.all(12),
-                        border_radius=10,
-                        bgcolor=ft.Colors.GREY_50,
-                    )
-                )
-        except Exception as e:
-            lista_usuarios.controls.append(ft.Text(f"Error: {e}", color="red"))
-        
+    def mostrar_alerta(msg, es_error=True):
+        txt_mensaje.value = msg
+        msg_container.visible = True
+        msg_container.bgcolor = ft.Colors.RED_50 if es_error else ft.Colors.BLUE_50
+        txt_mensaje.color = ft.Colors.RED_700 if es_error else ft.Colors.BLUE_700
+        msg_container.content.controls[0].color = ft.Colors.RED_700 if es_error else ft.Colors.BLUE_700
         page.update()
 
-    # 👤 Acciones
-    def ejecutar_creacion(e):
-        if not input_user.value or not input_pass.value:
-            notificar("Completa usuario y contraseña")
-            return
+    def modal_nuevo_usuario(e):
+        input_user = ft.TextField(label="Nombre de Usuario", border_radius=10, prefix_icon=ft.Icons.PERSON)
+        input_pass = ft.TextField(label="Contraseña", password=True, can_reveal_password=True, border_radius=10, prefix_icon=ft.Icons.LOCK)
+        
+        def guardar(e):
+            if not input_user.value or not input_pass.value:
+                mostrar_alerta("Completa todos los campos")
+                return
+            
+            if crear_usuario(input_user.value, input_pass.value):
+                aplicar_cambios()
+                page.dialog.open = False
+                mostrar_alerta(f"Usuario {input_user.value} creado exitosamente ✅", False)
+                render_tabla_usuarios()
+            else:
+                mostrar_alerta("Error al crear usuario. Verifica si ya existe.")
 
-        if crear_usuario(input_user.value, input_pass.value):
-            aplicar_cambios()
-            notificar("Usuario creado exitosamente ✅")
-            input_pass.value = ""
-            cargar_datos()
-        else:
-            notificar("Error al crear el usuario ❌")
+        page.dialog = ft.AlertDialog(
+            title=ft.Text("Registrar Nuevo Usuario"),
+            content=ft.Column([input_user, input_pass], tight=True, spacing=15),
+            actions=[
+                ft.TextButton("Cancelar", on_click=lambda _: [setattr(page.dialog, "open", False), page.update()]),
+                ft.ElevatedButton("Registrar", on_click=guardar, bgcolor=ft.Colors.BLUE_700, color="white")
+            ]
+        )
+        page.overlay.append(page.dialog)
+        page.dialog.open = True
+        page.update()
 
-    def ejecutar_asignacion(e):
-        if not all([input_user.value, dropdown_db.value, dropdown_perm.value]):
-            notificar("Faltan datos para asignar permisos")
-            return
+    def modal_editar_permisos(user_name):
+        bases = obtener_bases()
+        # Añadimos la opción de "*" para permisos globales
+        opciones_db = [ft.dropdown.Option("* (Global)")] + [ft.dropdown.Option(db) for db in bases]
+        
+        dd_db = ft.Dropdown(
+            label="Base de Datos / Ámbito", 
+            options=opciones_db,
+            border_radius=10,
+            value="* (Global)"
+        )
+        
+        dd_perm = ft.Dropdown(
+            label="Privilegio a Asignar", 
+            options=[
+                ft.dropdown.Option("ALL PRIVILEGES"),
+                ft.dropdown.Option("CREATE"),
+                ft.dropdown.Option("DELETE"),
+                ft.dropdown.Option("DROP"),
+                ft.dropdown.Option("EXECUTE"),
+                ft.dropdown.Option("GRANT OPTION"),
+                ft.dropdown.Option("INSERT"),
+                ft.dropdown.Option("SELECT"),
+                ft.dropdown.Option("SHOW DATABASES"),
+                ft.dropdown.Option("UPDATE"),
+            ], 
+            value="SELECT",
+            border_radius=10
+        )
 
-        if otorgar_permisos(input_user.value, dropdown_db.value, dropdown_perm.value):
-            aplicar_cambios()
-            notificar(f"Permiso {dropdown_perm.value} otorgado ✅")
-        else:
-            notificar("Error al asignar permisos ❌")
+        def asignar(e):
+            # Si el usuario elige "ALL PRIVILEGES", ignoramos la DB seleccionada 
+            # y mandamos "*" para que el service use *.*
+            db_seleccionada = "*" if dd_perm.value == "ALL PRIVILEGES" or dd_db.value == "* (Global)" else dd_db.value
+            
+            if otorgar_permisos(user_name, db_seleccionada, dd_perm.value):
+                aplicar_cambios()
+                page.dialog.open = False
+                mostrar_alerta(f"Privilegio {dd_perm.value} aplicado ✅", False)
+                page.update()
+            else:
+                # El mensaje de error ahora será más específico
+                mostrar_alerta("Error de nivel de privilegio. Revisa la consola.")
 
-    def notificar(msg):
-        page.open(ft.SnackBar(ft.Text(msg)))
+        page.dialog = ft.AlertDialog(
+            title=ft.Text(f"Editar Privilegios: {user_name}"),
+            content=ft.Column([
+                ft.Text("Nota: Esto reemplazará los permisos anteriores en el ámbito seleccionado."),
+                dd_db, 
+                dd_perm
+            ], tight=True, spacing=15),
+            actions=[
+                ft.TextButton("Cancelar", on_click=lambda _: [setattr(page.dialog, "open", False), page.update()]),
+                ft.ElevatedButton("Actualizar", on_click=asignar, bgcolor=ft.Colors.AMBER_700, color="white")
+            ]
+        )
+        page.overlay.append(page.dialog)
+        page.dialog.open = True
+        page.update()
 
-    cargar_datos()
-
-    # --- DISEÑO FINAL PROFESIONAL ---
-    return ft.Column([
-        # Header
-        ft.Row([
-            ft.Column([
-                ft.Text("Control de Acceso", size=28, weight=ft.FontWeight.BOLD),
-                ft.Text("Gestiona usuarios y privilegios del servidor", color=ft.Colors.BLUE_GREY_400),
-            ])
-        ]),
-
-        ft.Divider(height=20, color=ft.Colors.TRANSPARENT),
-
-        ft.Row([
-            # IZQUIERDA: Formulario de Gestión
-            ft.Column([
-                # Card: Crear Usuario
-                ft.Container(
-                    content=ft.Column([
-                        ft.Row([ft.Icon(ft.Icons.PERSON_ADD_ROUNDED, color=ft.Colors.BLUE_700), ft.Text("Nuevo Usuario", weight="bold")]),
-                        input_user,
-                        input_pass,
-                        ft.Button(
-                            "Registrar Usuario",
-                            on_click=ejecutar_creacion,
-                            style=ft.ButtonStyle(bgcolor=ft.Colors.BLUE_700, color=ft.Colors.WHITE)
-                        )
-                    ], spacing=15),
-                    padding=25, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST if page.theme_mode == ft.ThemeMode.DARK else ft.Colors.WHITE, border_radius=15,
-                    shadow=ft.BoxShadow(blur_radius=10, color=ft.Colors.BLACK12)
-                ),
-
-                # Card: Asignar Permisos
-                ft.Container(
-                    content=ft.Column([
-                        ft.Row([ft.Icon(ft.Icons.VPN_KEY_ROUNDED, color=ft.Colors.AMBER_700), ft.Text("Asignar Privilegios", weight="bold")]),
-                        dropdown_db,
-                        dropdown_perm,
-                        ft.Button(
-                            "Conceder Permisos",
-                            on_click=ejecutar_asignacion,
-                            style=ft.ButtonStyle(bgcolor=ft.Colors.AMBER_700, color=ft.Colors.WHITE)
-                        )
-                    ], spacing=15),
-                    padding=25, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST if page.theme_mode == ft.ThemeMode.DARK else ft.Colors.WHITE, border_radius=15,
-                    shadow=ft.BoxShadow(blur_radius=10, color=ft.Colors.BLACK12)
-                )
-            ], width=350, spacing=20),
-
-            # DERECHA: Lista de Usuarios Existentes
-            ft.Container(
-                content=ft.Column([
-                    ft.Text("Cuentas en el Servidor", weight=ft.FontWeight.BOLD, size=18),
-                    ft.Divider(),
-                    lista_usuarios
-                ]),
-                expand=True,
-                padding=25,
-                bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST if page.theme_mode == ft.ThemeMode.DARK else ft.Colors.WHITE,
-                border_radius=15,
-                shadow=ft.BoxShadow(blur_radius=10, color=ft.Colors.BLACK12)
+    def render_tabla_usuarios():
+        main_content.controls.clear()
+        try:
+            usuarios = obtener_usuarios()
+            
+            dt = ft.DataTable(
+                heading_row_color=ft.Colors.BLACK12,
+                columns=[
+                    ft.DataColumn(ft.Text("Usuario", weight="bold")),
+                    ft.DataColumn(ft.Text("Host", weight="bold")),
+                    ft.DataColumn(ft.Text("Acciones", weight="bold")),
+                ],
+                rows=[
+                    ft.DataRow(cells=[
+                        ft.DataCell(ft.Text(u[0])),
+                        ft.DataCell(ft.Text(u[1])),
+                        ft.DataCell(ft.Row([
+                            ft.IconButton(
+                                icon=ft.Icons.SECURITY_ROUNDED, 
+                                icon_color=ft.Colors.AMBER_800, 
+                                tooltip="Editar Permisos",
+                                on_click=lambda e, n=u[0]: modal_editar_permisos(n)
+                            ),
+                            ft.IconButton(
+                                icon=ft.Icons.DELETE_OUTLINE_ROUNDED, 
+                                icon_color="red", 
+                                tooltip="Eliminar Usuario",
+                                on_click=lambda e, n=u[0]: [eliminar_usuario(n), render_tabla_usuarios(), mostrar_alerta(f"Usuario {n} eliminado")]
+                            )
+                        ]))
+                    ]) for u in usuarios
+                ],
+                expand=True
             )
-        ], expand=True, spacing=20)
-    ], expand=True, scroll=ft.ScrollMode.ADAPTIVE)
+            
+            main_content.controls.append(ft.Row([dt], scroll=ft.ScrollMode.ALWAYS))
+            
+        except Exception as e:
+            mostrar_alerta(f"Error al cargar la lista: {e}")
+        page.update()
+
+
+    render_tabla_usuarios()
+
+    return ft.Column([
+        # Cabecera
+        ft.Container(
+            content=ft.Column([
+                ft.Row([
+                    ft.Column([
+                        ft.Text("Control de Usuarios", size=28, weight="bold"),
+                        ft.Text("Administración de privilegios y accesos", color=ft.Colors.BLUE_GREY_400),
+                    ]),
+                    ft.ElevatedButton(
+                        "Nuevo Usuario", 
+                        icon=ft.Icons.PERSON_ADD, 
+                        on_click=modal_nuevo_usuario,
+                        bgcolor=ft.Colors.BLUE_700,
+                        color="white"
+                    )
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                msg_container,
+                ft.Divider(height=1),
+            ]),
+            padding=10
+        ),
+
+        ft.Container(content=main_content, expand=True, padding=10)
+    ], expand=True)

@@ -94,7 +94,6 @@ def backup_view(page: ft.Page):
         ft.Column([
             ft.Text("Respaldo y Recuperación", size=28, weight=ft.FontWeight.BOLD),
             ft.Text("Gestión de seguridad de datos SQL", color=ft.Colors.BLUE_GREY_400),
-            ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
             msg_container, # El mensaje ahora vive aquí arriba
         ]),
 

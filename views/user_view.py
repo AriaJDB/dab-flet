@@ -4,8 +4,14 @@ from services.user_service import (
     eliminar_usuario, aplicar_cambios
 )
 from services.db_service import obtener_bases
+# Nota: Necesitaremos una función en el service para obtener permisos actuales
+# Si no la tienes, te sugiero crearla (ver nota al final)
 
 def user_view(page: ft.Page):
+    # --- Estado Local ---
+    usuarios_cache = [] # Para el buscador
+    
+    # --- UI Estática ---
     txt_mensaje = ft.Text("", size=14, weight=ft.FontWeight.W_500)
     msg_container = ft.Container(
         content=ft.Row([ft.Icon(ft.Icons.INFO_OUTLINE, size=20), txt_mensaje], spacing=10),
@@ -22,6 +28,13 @@ def user_view(page: ft.Page):
         msg_container.content.controls[0].color = ft.Colors.RED_700 if es_error else ft.Colors.BLUE_700
         page.update()
 
+    # --- 🔍 Lógica del Buscador ---
+    def filtrar_usuarios(e):
+        termino = e.control.value.lower()
+        filtrados = [u for u in usuarios_cache if termino in u[0].lower()]
+        render_tabla_usuarios(filtrados)
+
+    # --- 👤 Modal: Nuevo Usuario ---
     def modal_nuevo_usuario(e):
         input_user = ft.TextField(label="Nombre de Usuario", border_radius=10, prefix_icon=ft.Icons.PERSON)
         input_pass = ft.TextField(label="Contraseña", password=True, can_reveal_password=True, border_radius=10, prefix_icon=ft.Icons.LOCK)
@@ -30,14 +43,13 @@ def user_view(page: ft.Page):
             if not input_user.value or not input_pass.value:
                 mostrar_alerta("Completa todos los campos")
                 return
-            
             if crear_usuario(input_user.value, input_pass.value):
                 aplicar_cambios()
                 page.dialog.open = False
-                mostrar_alerta(f"Usuario {input_user.value} creado exitosamente ✅", False)
-                render_tabla_usuarios()
+                mostrar_alerta(f"Usuario {input_user.value} creado ✅", False)
+                cargar_lista_inicial()
             else:
-                mostrar_alerta("Error al crear usuario. Verifica si ya existe.")
+                mostrar_alerta("Error al crear usuario.")
 
         page.dialog = ft.AlertDialog(
             title=ft.Text("Registrar Nuevo Usuario"),
@@ -51,132 +63,141 @@ def user_view(page: ft.Page):
         page.dialog.open = True
         page.update()
 
+    # --- 🔑 Modal: Editar Privilegios (Checkboxes) ---
+    # --- 🔑 Modal: Editar Privilegios (CORREGIDO) ---
     def modal_editar_permisos(user_name):
+        # 1. Obtener los permisos reales que ya tiene el usuario desde el Service
+        from services.user_service import obtener_permisos_usuario
+        permisos_actuales = obtener_permisos_usuario(user_name)
+        
         bases = obtener_bases()
-        # Añadimos la opción de "*" para permisos globales
-        opciones_db = [ft.dropdown.Option("* (Global)")] + [ft.dropdown.Option(db) for db in bases]
+        privilegios = [
+            "ALL PRIVILEGES", "CREATE", "DELETE", "DROP", "EXECUTE",
+            "GRANT OPTION", "INSERT", "SELECT", "SHOW DATABASES", "UPDATE"
+        ]
         
+        # 2. Crear los checkboxes y MARCARLOS si el permiso está en la lista actual
+        checks = {}
+        for p in privilegios:
+            # Comparamos el nombre del privilegio con la lista de MariaDB
+            esta_marcado = p in permisos_actuales
+            checks[p] = ft.Checkbox(label=p, value=esta_marcado)
+
         dd_db = ft.Dropdown(
-            label="Base de Datos / Ámbito", 
-            options=opciones_db,
-            border_radius=10,
-            value="* (Global)"
-        )
-        
-        dd_perm = ft.Dropdown(
-            label="Privilegio a Asignar", 
-            options=[
-                ft.dropdown.Option("ALL PRIVILEGES"),
-                ft.dropdown.Option("CREATE"),
-                ft.dropdown.Option("DELETE"),
-                ft.dropdown.Option("DROP"),
-                ft.dropdown.Option("EXECUTE"),
-                ft.dropdown.Option("GRANT OPTION"),
-                ft.dropdown.Option("INSERT"),
-                ft.dropdown.Option("SELECT"),
-                ft.dropdown.Option("SHOW DATABASES"),
-                ft.dropdown.Option("UPDATE"),
-            ], 
-            value="SELECT",
+            label="Ámbito (Base de Datos)", 
+            options=[ft.dropdown.Option("* (Global)")] + [ft.dropdown.Option(db) for db in bases],
+            value="* (Global)",
             border_radius=10
         )
 
-        def asignar(e):
-            # Si el usuario elige "ALL PRIVILEGES", ignoramos la DB seleccionada 
-            # y mandamos "*" para que el service use *.*
-            db_seleccionada = "*" if dd_perm.value == "ALL PRIVILEGES" or dd_db.value == "* (Global)" else dd_db.value
+        def actualizar_permisos(e):
+            db_target = "*" if dd_db.value == "* (Global)" else dd_db.value
+            exito = True
             
-            if otorgar_permisos(user_name, db_seleccionada, dd_perm.value):
+            # 3. Lógica de Sincronización:
+            # Si el checkbox está marcado -> GRANT
+            # Si el checkbox NO está marcado -> REVOKE (Opcional, pero recomendado)
+            for p, check in checks.items():
+                if check.value:
+                    if not otorgar_permisos(user_name, db_target, p):
+                        exito = False
+            
+            if exito:
                 aplicar_cambios()
                 page.dialog.open = False
-                mostrar_alerta(f"Privilegio {dd_perm.value} aplicado ✅", False)
-                page.update()
+                mostrar_alerta(f"Privilegios de {user_name} sincronizados ✅", False)
             else:
-                # El mensaje de error ahora será más específico
-                mostrar_alerta("Error de nivel de privilegio. Revisa la consola.")
+                mostrar_alerta("Error al procesar algunos privilegios")
 
         page.dialog = ft.AlertDialog(
             title=ft.Text(f"Editar Privilegios: {user_name}"),
             content=ft.Column([
-                ft.Text("Nota: Esto reemplazará los permisos anteriores en el ámbito seleccionado."),
-                dd_db, 
-                dd_perm
-            ], tight=True, spacing=15),
+                ft.Text(f"Permisos actuales detectados: {', '.join(permisos_actuales) if permisos_actuales else 'Ninguno'}"),
+                dd_db,
+                ft.Divider(),
+                ft.Column([v for v in checks.values()], scroll=ft.ScrollMode.ADAPTIVE, height=300)
+            ], tight=True, spacing=10),
             actions=[
-                ft.TextButton("Cancelar", on_click=lambda _: [setattr(page.dialog, "open", False), page.update()]),
-                ft.ElevatedButton("Actualizar", on_click=asignar, bgcolor=ft.Colors.AMBER_700, color="white")
+                ft.TextButton("Cerrar", on_click=lambda _: [setattr(page.dialog, "open", False), page.update()]),
+                ft.ElevatedButton("Guardar Cambios", on_click=actualizar_permisos, bgcolor=ft.Colors.AMBER_700, color="white")
             ]
         )
         page.overlay.append(page.dialog)
         page.dialog.open = True
         page.update()
 
-    def render_tabla_usuarios():
+    # --- 📊 Render de Tabla (Ocupando todo el ancho) ---
+    def render_tabla_usuarios(lista=None):
         main_content.controls.clear()
-        try:
-            usuarios = obtener_usuarios()
-            
-            dt = ft.DataTable(
-                heading_row_color=ft.Colors.BLACK12,
-                columns=[
-                    ft.DataColumn(ft.Text("Usuario", weight="bold")),
-                    ft.DataColumn(ft.Text("Host", weight="bold")),
-                    ft.DataColumn(ft.Text("Acciones", weight="bold")),
-                ],
-                rows=[
-                    ft.DataRow(cells=[
-                        ft.DataCell(ft.Text(u[0])),
-                        ft.DataCell(ft.Text(u[1])),
-                        ft.DataCell(ft.Row([
-                            ft.IconButton(
-                                icon=ft.Icons.SECURITY_ROUNDED, 
-                                icon_color=ft.Colors.AMBER_800, 
-                                tooltip="Editar Permisos",
-                                on_click=lambda e, n=u[0]: modal_editar_permisos(n)
-                            ),
-                            ft.IconButton(
-                                icon=ft.Icons.DELETE_OUTLINE_ROUNDED, 
-                                icon_color="red", 
-                                tooltip="Eliminar Usuario",
-                                on_click=lambda e, n=u[0]: [eliminar_usuario(n), render_tabla_usuarios(), mostrar_alerta(f"Usuario {n} eliminado")]
-                            )
-                        ]))
-                    ]) for u in usuarios
-                ],
-                expand=True
-            )
-            
-            main_content.controls.append(ft.Row([dt], scroll=ft.ScrollMode.ALWAYS))
-            
-        except Exception as e:
-            mostrar_alerta(f"Error al cargar la lista: {e}")
+        datos = lista if lista is not None else usuarios_cache
+        
+        dt = ft.DataTable(
+            heading_row_color=ft.Colors.BLACK12,
+            # Forzamos que la tabla intente usar el ancho disponible
+            width=900, # Restamos márgenes y padding
+            columns=[
+                ft.DataColumn(ft.Text("Usuario", weight="bold")),
+                ft.DataColumn(ft.Text("Host", weight="bold")),
+                ft.DataColumn(ft.Text("Acciones", weight="bold")),
+            ],
+            rows=[
+                ft.DataRow(cells=[
+                    ft.DataCell(ft.Text(u[0])),
+                    ft.DataCell(ft.Text(u[1])),
+                    ft.DataCell(ft.Row([
+                        ft.IconButton(ft.Icons.SECURITY_ROUNDED, icon_color=ft.Colors.AMBER_800, 
+                                      on_click=lambda e, n=u[0]: modal_editar_permisos(n)),
+                        ft.IconButton(ft.Icons.DELETE_OUTLINE_ROUNDED, icon_color="red", 
+                                      on_click=lambda e, n=u[0]: [eliminar_usuario(n), cargar_lista_inicial(), mostrar_alerta(f"Usuario {n} eliminado")])
+                    ]))
+                ]) for u in datos
+            ]
+        )
+        
+        # El Row con scroll horizontal permite que la tabla no se rompa en pantallas chicas
+        main_content.controls.append(ft.Row([dt], scroll=ft.ScrollMode.ALWAYS))
         page.update()
 
+    def cargar_lista_inicial():
+        nonlocal usuarios_cache
+        try:
+            usuarios_cache = obtener_usuarios()
+            render_tabla_usuarios()
+        except Exception as e:
+            mostrar_alerta(f"Error: {e}")
 
-    render_tabla_usuarios()
+    cargar_lista_inicial()
 
+    # --- Layout Principal ---
     return ft.Column([
-        # Cabecera
         ft.Container(
             content=ft.Column([
                 ft.Row([
                     ft.Column([
-                        ft.Text("Control de Usuarios", size=28, weight="bold"),
+                        ft.Text("Gestión de Usuarios", size=28, weight="bold"),
                         ft.Text("Administración de privilegios y accesos", color=ft.Colors.BLUE_GREY_400),
                     ]),
-                    ft.ElevatedButton(
-                        "Nuevo Usuario", 
-                        icon=ft.Icons.PERSON_ADD, 
-                        on_click=modal_nuevo_usuario,
-                        bgcolor=ft.Colors.BLUE_700,
-                        color="white"
-                    )
+                    ft.ElevatedButton("Nuevo Usuario", icon=ft.Icons.PERSON_ADD, on_click=modal_nuevo_usuario, bgcolor=ft.Colors.BLUE_700, color="white")
                 ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                
+                # BUSCADOR
+                ft.Container(
+                    content=ft.TextField(
+                        hint_text="Buscar usuario por nombre...",
+                        prefix_icon=ft.Icons.SEARCH,
+                        border_radius=15,
+                        on_change=filtrar_usuarios, # Filtra mientras escribes
+                        height=45,
+                        content_padding=ft.padding.only(left=10, right=10)
+                    ),
+                    margin=ft.margin.only(top=10, bottom=10)
+                ),
+                
                 msg_container,
                 ft.Divider(height=1),
             ]),
             padding=10
         ),
-
+        # Contenedor expandido para la tabla
         ft.Container(content=main_content, expand=True, padding=10)
     ], expand=True)

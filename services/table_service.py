@@ -101,3 +101,22 @@ def eliminar_tabla(database, nombre_tabla):
     conn.commit()
 
     conn.close()
+
+def obtener_datos(base_datos, tabla):
+    conn = conectar()
+    cursor = conn.cursor()
+    
+    try:
+        # ✅ Agregamos el USE para seleccionar la base de datos
+        cursor.execute(f"USE {base_datos}")
+        
+        query = f"SELECT * FROM {tabla}"
+        cursor.execute(query)
+        res = cursor.fetchall()
+        return res
+    except Exception as e:
+        print(f"Error al obtener datos en {base_datos}.{tabla}: {e}")
+        return []
+    finally:
+        cursor.close()
+        conn.close()

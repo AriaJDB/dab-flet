@@ -12,6 +12,38 @@ from views.user_view import user_view
 from views.metrics_view import metrics_view
 
 def main(page: ft.Page):
+
+    def notificar(mensaje, color=ft.Colors.RED_700):
+        # Creamos el snackbar
+        page.snack_bar = ft.SnackBar(
+            content=ft.Text(mensaje, color=ft.Colors.WHITE),
+            bgcolor=color,
+            show_close_icon=True,
+        )
+        page.snack_bar.open = True
+        page.update() # 👈 ¡Este update es el que lo muestra en la UI!
+
+    # Guardamos la función en el objeto page para que sea accesible en las vistas
+    page.notificar = notificar
+
+    page.dark_theme = ft.Theme(
+        color_scheme=ft.ColorScheme(
+            primary=ft.Colors.BLUE_400,
+            surface=ft.Colors.BLUE_GREY_900,
+            on_surface=ft.Colors.GREY_100,
+            primary_container=ft.Colors.BLUE_900,
+        ),
+    )
+    
+    # Definir paleta para Modo Claro
+    page.theme = ft.Theme(
+        color_scheme=ft.ColorScheme(
+            primary=ft.Colors.BLUE_700,
+            surface=ft.Colors.WHITE,
+            on_surface=ft.Colors.BLACK,
+        ),
+    )
+
     # Configuración inicial de la ventana
     page.title = "DB Manager Pro"
     page.theme_mode = ft.ThemeMode.LIGHT
@@ -27,7 +59,7 @@ def main(page: ft.Page):
     # Este contenedor alojará las vistas que importas (db_view, table_view, etc.)
     content_area = ft.Container(
         expand=True,
-        bgcolor=ft.Colors.WHITE,
+        bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST if page.theme_mode == ft.ThemeMode.DARK else ft.Colors.WHITE,
         border_radius=ft.BorderRadius(30, 0, 0, 0), # Esquina superior izquierda redondeada
         padding=20,
         shadow=ft.BoxShadow(blur_radius=10, color=ft.Colors.BLACK12),
@@ -48,6 +80,24 @@ def main(page: ft.Page):
             on_hover=lambda e: setattr(e.control, "bgcolor", ft.Colors.BLACK12 if e.data == "true" else None) or e.control.update(),
             on_click=lambda _: cargar_vista(view_name),
         )
+    
+    def cambiar_tema(e):
+        page.theme_mode = (
+            ft.ThemeMode.DARK 
+            if page.theme_mode == ft.ThemeMode.LIGHT 
+            else ft.ThemeMode.LIGHT
+        )
+
+        
+        # Ajustamos colores manuales para que no "brillen" en modo oscuro
+        if page.theme_mode == ft.ThemeMode.DARK:
+            page.bgcolor = ft.Colors.BLUE_GREY_900
+            content_area.bgcolor = "#1e1e26" # Un gris muy oscuro, casi negro
+        else:
+            page.bgcolor = ft.Colors.BLUE_GREY_50
+            content_area.bgcolor = ft.Colors.WHITE
+        
+        page.update()
 
     # 🔄 Lógica para intercambiar las vistas importadas
     def cargar_vista(nombre):
@@ -111,6 +161,14 @@ def main(page: ft.Page):
                 sidebar_items.controls.append(sidebar_button("Insertar Datos", ft.Icons.ADD_BOX_ROUNDED, "tables"))
 
         # Botón para salir
+
+        theme_switch = ft.ListTile(
+            leading=ft.Icon(ft.Icons.DARK_MODE_ROUNDED),
+            title=ft.Text("Modo Oscuro"),
+            trailing=ft.Switch(value=False, on_change=cambiar_tema),
+        )
+        sidebar_items.controls.append(theme_switch)
+
         sidebar_items.controls.append(ft.Divider(height=30, color=ft.Colors.TRANSPARENT))
         sidebar_items.controls.append(
             ft.Button(

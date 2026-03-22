@@ -115,7 +115,7 @@ def metrics_view(page: ft.Page):
                     ft.Text("Conexiones Activas", size=14, color=ft.Colors.BLUE_GREY_500),
                     conexiones_val
                 ], spacing=5),
-                expand=True, padding=20, bgcolor=ft.Colors.WHITE, border_radius=15,
+                expand=True, padding=20, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST if page.theme_mode == ft.ThemeMode.DARK else ft.Colors.WHITE, border_radius=15,
                 shadow=ft.BoxShadow(blur_radius=10, color=ft.Colors.BLACK12)
             ),
             # Card QPS
@@ -125,7 +125,7 @@ def metrics_view(page: ft.Page):
                     ft.Text("Queries por Segundo (QPS)", size=14, color=ft.Colors.BLUE_GREY_500),
                     qps_val
                 ], spacing=5),
-                expand=True, padding=20, bgcolor=ft.Colors.WHITE, border_radius=15,
+                expand=True, padding=20, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST if page.theme_mode == ft.ThemeMode.DARK else ft.Colors.WHITE, border_radius=15,
                 shadow=ft.BoxShadow(blur_radius=10, color=ft.Colors.BLACK12)
             ),
         ], spacing=20),
@@ -148,7 +148,7 @@ def metrics_view(page: ft.Page):
                 ft.Container(content=grafica_container, padding=ft.Padding.only(top=20))
             ]),
             padding=25,
-            bgcolor=ft.Colors.WHITE,
+            bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST if page.theme_mode == ft.ThemeMode.DARK else ft.Colors.WHITE,
             border_radius=15,
             shadow=ft.BoxShadow(blur_radius=10, color=ft.Colors.BLACK12),
             expand=True

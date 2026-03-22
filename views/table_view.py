@@ -185,7 +185,7 @@ def table_view(page: ft.Page):
                         ft.Button("Crear Tabla Ahora", on_click=ejecutar_creacion, 
                                   style=ft.ButtonStyle(bgcolor=ft.Colors.GREEN_700, color=ft.Colors.WHITE)),
                     ], spacing=15),
-                    padding=20, bgcolor=ft.Colors.WHITE, border_radius=15,
+                    padding=20, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST if page.theme_mode == ft.ThemeMode.DARK else ft.Colors.WHITE, border_radius=15,
                     shadow=ft.BoxShadow(blur_radius=10, color=ft.Colors.BLACK12)
                 ),
                 # Card 2: Lista de Tablas
@@ -195,7 +195,7 @@ def table_view(page: ft.Page):
                         ft.Divider(),
                         lista_tablas
                     ]),
-                    expand=True, padding=20, bgcolor=ft.Colors.WHITE, border_radius=15,
+                    expand=True, padding=20, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST if page.theme_mode == ft.ThemeMode.DARK else ft.Colors.WHITE, border_radius=15,
                     shadow=ft.BoxShadow(blur_radius=10, color=ft.Colors.BLACK12)
                 )
             ], width=350, spacing=20),

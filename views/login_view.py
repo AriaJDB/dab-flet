@@ -8,6 +8,7 @@ def login_view(page: ft.Page, on_login):
     password = ft.TextField(label="Contraseña", password=True)
 
     def iniciar(e):
+        
         u = user.value
         p = password.value
 

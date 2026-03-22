@@ -134,7 +134,7 @@ def user_view(page: ft.Page):
                             style=ft.ButtonStyle(bgcolor=ft.Colors.BLUE_700, color=ft.Colors.WHITE)
                         )
                     ], spacing=15),
-                    padding=25, bgcolor=ft.Colors.WHITE, border_radius=15,
+                    padding=25, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST if page.theme_mode == ft.ThemeMode.DARK else ft.Colors.WHITE, border_radius=15,
                     shadow=ft.BoxShadow(blur_radius=10, color=ft.Colors.BLACK12)
                 ),
 
@@ -150,7 +150,7 @@ def user_view(page: ft.Page):
                             style=ft.ButtonStyle(bgcolor=ft.Colors.AMBER_700, color=ft.Colors.WHITE)
                         )
                     ], spacing=15),
-                    padding=25, bgcolor=ft.Colors.WHITE, border_radius=15,
+                    padding=25, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST if page.theme_mode == ft.ThemeMode.DARK else ft.Colors.WHITE, border_radius=15,
                     shadow=ft.BoxShadow(blur_radius=10, color=ft.Colors.BLACK12)
                 )
             ], width=350, spacing=20),
@@ -164,7 +164,7 @@ def user_view(page: ft.Page):
                 ]),
                 expand=True,
                 padding=25,
-                bgcolor=ft.Colors.WHITE,
+                bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST if page.theme_mode == ft.ThemeMode.DARK else ft.Colors.WHITE,
                 border_radius=15,
                 shadow=ft.BoxShadow(blur_radius=10, color=ft.Colors.BLACK12)
             )

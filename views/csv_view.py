@@ -145,7 +145,7 @@ def csv_view(page: ft.Page):
                 dropdown_tabla,
             ], alignment=ft.MainAxisAlignment.START, spacing=20),
             padding=25,
-            bgcolor=ft.Colors.WHITE,
+            bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST if page.theme_mode == ft.ThemeMode.DARK else ft.Colors.WHITE,
             border_radius=15,
             shadow=ft.BoxShadow(blur_radius=10, color=ft.Colors.BLACK12)
         ),
@@ -175,7 +175,7 @@ def csv_view(page: ft.Page):
                 ], spacing=15),
                 expand=True,
                 padding=25,
-                bgcolor=ft.Colors.WHITE,
+                bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST if page.theme_mode == ft.ThemeMode.DARK else ft.Colors.WHITE,
                 border_radius=15,
                 border=ft.Border(top=ft.BorderSide(5, ft.Colors.BLUE_700)),
                 shadow=ft.BoxShadow(blur_radius=10, color=ft.Colors.BLACK12)
@@ -202,7 +202,7 @@ def csv_view(page: ft.Page):
                 ], spacing=15),
                 expand=True,
                 padding=25,
-                bgcolor=ft.Colors.WHITE,
+                bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST if page.theme_mode == ft.ThemeMode.DARK else ft.Colors.WHITE,
                 border_radius=15,
                 border=ft.Border(top=ft.BorderSide(5, ft.Colors.GREEN_700)),
                 shadow=ft.BoxShadow(blur_radius=10, color=ft.Colors.BLACK12)

@@ -1,26 +1,67 @@
 import flet as ft
-from services.db_service import obtener_bases, crear_base, eliminar_base
-from services.table_service import obtener_tablas
+from services.db_service import obtener_bases, eliminar_base
+from services.table_service import obtener_tablas, obtener_columnas, obtener_datos
 
 def db_view(page: ft.Page):
-    # --- Contenedores de datos ---
-    lista_bases = ft.Column(scroll=ft.ScrollMode.ADAPTIVE, spacing=10)
-    detalle_tablas = ft.Column(scroll=ft.ScrollMode.ADAPTIVE, spacing=10)
-    
-    # --- Inputs Estilizados ---
-    input_db = ft.TextField(
-        label="Nueva Base de Datos",
-        hint_text="Ej: ventas_2026", # ✅ Cambiado de placeholder a hint_text
-        width=400,
-        border_radius=10,
-        prefix_icon=ft.Icons.ADD_OUTLINED,
-        text_size=14
-    )
+    # --- Estado de la Vista ---
+    estado = {
+        "nivel": "bases", # bases, tablas, datos
+        "db_seleccionada": None,
+        "tabla_seleccionada": None
+    }
 
-    # 🔄 Cargar bases de datos
-    def cargar_lista():
-        lista_bases.controls.clear()
-        detalle_tablas.controls.clear()
+    # Contenedor principal donde renderizaremos el contenido dinámico
+    main_content = ft.Column(expand=True, spacing=20)
+    breadcrumb_row = ft.Row(spacing=5)
+
+    # --- Componente: Breadcrumbs ---
+    def actualizar_breadcrumbs():
+        breadcrumb_row.controls.clear()
+        
+        # Nivel 1: Inicio / Bases
+        breadcrumb_row.controls.append(
+            ft.TextButton("Bases de Datos", on_click=lambda _: ir_a_nivel("bases"))
+        )
+
+        # Nivel 2: Base seleccionada
+        if estado["db_seleccionada"]:
+            breadcrumb_row.controls.append(ft.Icon(ft.Icons.CHEVRON_RIGHT, size=16, color=ft.Colors.GREY_400))
+            breadcrumb_row.controls.append(
+                ft.TextButton(estado["db_seleccionada"], on_click=lambda _: ir_a_nivel("tablas"))
+            )
+
+        # Nivel 3: Tabla seleccionada
+        if estado["tabla_seleccionada"]:
+            breadcrumb_row.controls.append(ft.Icon(ft.Icons.CHEVRON_RIGHT, size=16, color=ft.Colors.GREY_400))
+            breadcrumb_row.controls.append(
+                ft.Text(estado["tabla_seleccionada"], weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_700)
+            )
+        
+        page.update()
+
+    # --- Lógica de Navegación ---
+    def ir_a_nivel(nivel, nombre=None):
+        estado["nivel"] = nivel
+        if nivel == "bases":
+            estado["db_seleccionada"] = None
+            estado["tabla_seleccionada"] = None
+            render_bases()
+        elif nivel == "tablas":
+            if nombre: estado["db_seleccionada"] = nombre
+            estado["tabla_seleccionada"] = None
+            render_tablas()
+        elif nivel == "datos":
+            if nombre: estado["tabla_seleccionada"] = nombre
+            render_datos()
+        
+        actualizar_breadcrumbs()
+
+    # --- Renderizado: Nivel 1 (Bases de Datos) ---
+    def render_bases():
+        main_content.controls.clear()
+        
+        # Usamos una columna para que se apilen verticalmente
+        lista_bases = ft.Column(spacing=10, scroll=ft.ScrollMode.ADAPTIVE)
         
         try:
             bases = obtener_bases()
@@ -28,136 +69,97 @@ def db_view(page: ft.Page):
                 lista_bases.controls.append(
                     ft.Container(
                         content=ft.Row([
-                            ft.Icon(ft.Icons.DATA_ARRAY_ROUNDED, color=ft.Colors.BLUE_400),
-                            ft.Text(db, weight=ft.FontWeight.W_500, expand=True),
-                            ft.IconButton(
-                                icon=ft.Icons.DELETE_OUTLINE_ROUNDED,
-                                icon_color=ft.Colors.RED_400,
-                                tooltip="Eliminar Base",
-                                on_click=lambda e, nombre=db: eliminar(nombre)
-                            )
+                            ft.Icon(ft.Icons.DATA_ARRAY_ROUNDED, color=ft.Colors.BLUE_700),
+                            ft.Text(db, weight=ft.FontWeight.W_500, size=16, expand=True),
+                            ft.Icon(ft.Icons.ARROW_FORWARD_IOS, size=14, color=ft.Colors.GREY_400)
                         ]),
-                        padding=ft.Padding.all(15),
+                        padding=20,
+                        # Fondo adaptable al modo oscuro
+                        bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST if page.theme_mode == ft.ThemeMode.DARK else ft.Colors.WHITE,
                         border_radius=10,
-                        bgcolor=ft.Colors.GREY_50,
-                        on_click=lambda e, nombre=db: ver_tablas_de_db(nombre),
-                        on_hover=lambda e: setattr(e.control, "bgcolor", ft.Colors.BLUE_50 if e.data == "true" else ft.Colors.GREY_50) or e.control.update()
+                        on_click=lambda e, n=db: ir_a_nivel("tablas", n),
+                        # Efecto visual al pasar el mouse
+                        on_hover=lambda e: setattr(e.control, "bgcolor", ft.Colors.BLUE_50 if (e.data == "true" and page.theme_mode == ft.ThemeMode.LIGHT) else (ft.Colors.WHITE10 if e.data == "true" else None)) or e.control.update()
                     )
                 )
+            
+            if not bases:
+                main_content.controls.append(ft.Text("No se encontraron bases de datos.", italic=True))
+            else:
+                main_content.controls.append(lista_bases)
+
         except Exception as ex:
-            lista_bases.controls.append(ft.Text(f"Error al cargar: {ex}", color="red"))
-        
+            main_content.controls.append(ft.Text(f"Error al cargar bases: {ex}", color="red"))
+
         page.update()
 
-    # 👁️ Ver tablas de la base seleccionada
-    def ver_tablas_de_db(nombre):
-        detalle_tablas.controls.clear()
+    # --- Renderizado: Nivel 2 (Tablas) ---
+    def render_tablas():
+        main_content.controls.clear()
+        lista = ft.Column(spacing=10)
         
-        # Encabezado del detalle
-        detalle_tablas.controls.append(
-            ft.Row([
-                ft.Icon(ft.Icons.STORAGE_ROUNDED, color=ft.Colors.BLUE_700),
-                ft.Text(f"Tablas en: {nombre}", size=18, weight=ft.FontWeight.BOLD)
-            ])
-        )
-        detalle_tablas.controls.append(ft.Divider(height=10, color=ft.Colors.TRANSPARENT))
-
         try:
-            tablas = obtener_tablas(nombre)
-            if not tablas:
-                detalle_tablas.controls.append(ft.Text("No hay tablas en esta base.", italic=True, color=ft.Colors.BLUE_GREY_400))
-            
+            tablas = obtener_tablas(estado["db_seleccionada"])
             for t in tablas:
-                detalle_tablas.controls.append(
+                lista.controls.append(
                     ft.Container(
                         content=ft.Row([
-                            ft.Icon(ft.Icons.TABLE_CHART_OUTLINED, size=18, color=ft.Colors.BLUE_GREY_400),
-                            ft.Text(t, size=14)
+                            ft.Icon(ft.Icons.TABLE_CHART_ROUNDED, color=ft.Colors.BLUE_400),
+                            ft.Text(t, size=16, expand=True),
+                            ft.Icon(ft.Icons.ARROW_FORWARD_IOS, size=14, color=ft.Colors.GREY_400)
                         ]),
-                        padding=ft.Padding.symmetric(vertical=5, horizontal=10)
+                        padding=20,
+                        border_radius=10,
+                        bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST if page.theme_mode == ft.ThemeMode.DARK else ft.Colors.WHITE,
+                        on_click=lambda e, n=t: ir_a_nivel("datos", n)
                     )
                 )
         except Exception as ex:
-            detalle_tablas.controls.append(ft.Text(f"Error: {ex}", color="red"))
+            main_content.controls.append(ft.Text(f"Error: {ex}", color="red"))
 
+        main_content.controls.append(lista)
         page.update()
 
-    def crear(e):
-        if input_db.value:
-            crear_base(input_db.value)
-            input_db.value = ""
-            cargar_lista()
+    # --- Renderizado: Nivel 3 (Datos de la Tabla) ---
+    def render_datos():
+        main_content.controls.clear()
+        
+        try:
+            # Obtener columnas y filas
+            columnas_db = obtener_columnas(estado["db_seleccionada"], estado["tabla_seleccionada"])
+            datos = obtener_datos(estado["db_seleccionada"], estado["tabla_seleccionada"])
 
-    def eliminar(nombre):
-        # Aquí podrías agregar un ConfirmDialog de Flet para hacerlo más profesional
-        eliminar_base(nombre)
-        cargar_lista()
-
-    # Carga inicial
-    cargar_lista()
-
-    # --- Estructura Visual Final ---
-    return ft.Column(
-        [
-            # Título y Acción de Crear
-            ft.Row([
-                ft.Column([
-                    ft.Text("Bases de Datos", size=28, weight=ft.FontWeight.BOLD),
-                    ft.Text("Gestión y visualización de esquemas", color=ft.Colors.BLUE_GREY_400),
-                ], expand=True),
-                ft.Row([
-                    input_db,
-                    ft.Button(
-                        "Crear Base",
-                        icon=ft.Icons.ADD,
-                        on_click=crear,
-                        style=ft.ButtonStyle(
-                            bgcolor=ft.Colors.BLUE_700,
-                            color=ft.Colors.WHITE,
-                            shape=ft.RoundedRectangleBorder(radius=10)
-                        )
-                    )
-                ], spacing=10)
-            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-
-            ft.Divider(height=40, color=ft.Colors.TRANSPARENT),
-
-            # Cuerpo: Lista y Detalle
-            ft.Row(
-                [
-                    # Columna Izquierda: Lista de Bases
-                    ft.Container(
-                        content=ft.Column([
-                            ft.Text("Bases Disponibles", weight=ft.FontWeight.BOLD),
-                            ft.Divider(height=10),
-                            lista_bases
-                        ]),
-                        width=350,
-                        padding=20,
-                        bgcolor=ft.Colors.WHITE,
-                        border_radius=15,
-                        shadow=ft.BoxShadow(blur_radius=5, color=ft.Colors.BLACK12),
-                        expand=False
-                    ),
-
-                    # Columna Derecha: Detalle de Tablas
-                    ft.Container(
-                        content=detalle_tablas,
-                        expand=True,
-                        padding=20,
-                        bgcolor=ft.Colors.GREY_50,
-                        border_radius=15,
-                        border=ft.Border(
-                            left=ft.BorderSide(1, ft.Colors.BLUE_GREY_100)
-                        )
-                    )
-                ],
-                expand=True,
-                alignment=ft.MainAxisAlignment.START,
-                vertical_alignment=ft.CrossAxisAlignment.START,
-                spacing=20
+            # Crear el DataTable de Flet
+            dt = ft.DataTable(
+                border=ft.border.all(1, ft.Colors.BLACK12),
+                border_radius=10,
+                heading_row_color=ft.Colors.BLUE_50 if page.theme_mode == ft.ThemeMode.LIGHT else ft.Colors.WHITE10,
+                columns=[ft.DataColumn(ft.Text(col[0], weight="bold")) for col in columnas_db],
+                rows=[
+                    ft.DataRow(cells=[ft.DataCell(ft.Text(str(valor))) for valor in fila])
+                    for fila in datos
+                ]
             )
-        ],
-        expand=True,
-        spacing=0
-    )
+
+            # Contenedor con scroll horizontal por si la tabla es muy ancha
+            main_content.controls.append(
+                ft.Container(
+                    content=ft.Column([dt], scroll=ft.ScrollMode.ADAPTIVE),
+                    padding=10,
+                    bgcolor=ft.Colors.WHITE if page.theme_mode == ft.ThemeMode.LIGHT else ft.Colors.BLACK12,
+                    border_radius=15
+                )
+            )
+        except Exception as ex:
+            main_content.controls.append(ft.Text(f"Error al cargar datos: {ex}", color="red"))
+        
+        page.update()
+
+    # --- Inicio de la Vista ---
+    ir_a_nivel("bases")
+    
+    return ft.Column([
+        ft.Container(breadcrumb_row, padding=ft.Padding.only(bottom=10)),
+        ft.Divider(height=1),
+        main_content
+    ], expand=True, scroll=ft.ScrollMode.ADAPTIVE)

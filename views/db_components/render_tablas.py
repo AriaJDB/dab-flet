@@ -14,7 +14,7 @@ def get_tablas_ui(db_sel, es_admin, permisos, tiene_acceso, ir_a_nivel, get_styl
                 ft.TextField(label="Columna", width=150, height=40, text_size=13),
                 ft.Dropdown(width=120, height=40, value="VARCHAR(50)", text_size=12, options=[
                     ft.dropdown.Option("INT"), ft.dropdown.Option("VARCHAR(50)"), 
-                    ft.dropdown.Option("DATE"), ft.dropdown.Option("BOOLEAN"), ft.dropdown.Option("FLOAT"), ft.dropdown.Option("TEXT")
+                    ft.dropdown.Option("DATE"), ft.dropdown.Option("BOOLEAN"), ft.dropdown.Option("FLOAT")
                 ]),
                 ft.IconButton(ft.Icons.REMOVE_CIRCLE_OUTLINE, icon_color="red", icon_size=18, 
                              on_click=lambda e: [cols_ui.controls.remove(e.control.parent), page.update()])

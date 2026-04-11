@@ -5,6 +5,7 @@ from views.csv_view import csv_view
 from views.backup_view import backup_view
 from views.user_view import user_view
 from views.metrics_view import metrics_view
+from views.query_view import query_view
 
 def main(page: ft.Page):
     page.title = "LatteDB Manager"
@@ -91,6 +92,8 @@ def main(page: ft.Page):
 
         if nombre == "db":
             nueva_vista = db_view(page, page.session_data)
+        elif nombre == "query":
+            nueva_vista = query_view(page)
         elif nombre == "csv":
             nueva_vista = csv_view(page)
         elif nombre == "backup":
@@ -128,6 +131,7 @@ def main(page: ft.Page):
 
         if es_admin:
             sidebar_items.controls.extend([
+                sidebar_button("Editor SQL", ft.Icons.TERMINAL_ROUNDED, "query"),
                 sidebar_button("Importar CSV", ft.Icons.FILE_OPEN_ROUNDED, "csv"),
                 sidebar_button("Backups", ft.Icons.BACKUP_ROUNDED, "backup"),
                 sidebar_button("Usuarios", ft.Icons.PEOPLE_ALT_ROUNDED, "users"),
@@ -139,7 +143,7 @@ def main(page: ft.Page):
         sidebar_items.controls.append(
             ft.ListTile(
                 leading=ft.Icon(ft.Icons.DARK_MODE_ROUNDED, size=20),
-                title=ft.Text("Modo Oscuro", size=14),
+                title=ft.Text("Modo Oscuro", size=12),
                 trailing=ft.Switch(
                     value=page.theme_mode == ft.ThemeMode.DARK, 
                     on_change=cambiar_tema

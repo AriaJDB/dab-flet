@@ -8,9 +8,14 @@ Aplicación de interfaz gráfica para administrar un servidor MySQL con funcione
 
 ## 🚀 Novedades y cambios recientes
 
-- Estructura organizada en `app.py`, Servicios (`services/`) y Vistas (`views/`).
+- Estructura organizada en `app.py`, servicios (`services/`) y vistas (`views/`).
+- Login con usuario y contraseña para acceso seguro.
 - Incorporación de `metrics_service.py` y `metrics_view.py` para monitoreo en tiempo real.
-- Soporte mejorado de herramientas CSV y backup desde la UI.
+- Soporte completo CSV: importación y exportación con `csv_service.py` y `csv_view.py`.
+- Backups mejorados con `backup_service.py` (crear, listar, restaurar con mariadb-dump/mysqldump).
+- Soporte de rutas externas en `.env`:
+  - `DB_DUMP_PATH` (ruta a mariadb-dump.exe)
+  - `DB_CLI_PATH` (ruta a mariadb.exe)
 - Corrección de comandos de inicio: ejecutar ahora `python app.py`.
 
 ## ✅ Características
@@ -91,7 +96,10 @@ app.py
   login_view.py
   metrics_view.py
   user_view.py
-```
+/db_components/
+  render_bases.py
+  render_datos.py
+  render_tablas.py
 
 ## 💡 Consejos
 
@@ -108,5 +116,4 @@ app.py
 ---
 
 ### 📌 Autor
-- Estudiante / Desarrollador: [Tu Nombre]
 - Proyecto educativo para gestión de bases de datos con Flet.

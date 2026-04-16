@@ -184,8 +184,53 @@ def user_view(page: ft.Page):
         render_usuarios(filtrados)
 
     def modal_nuevo_usuario(e):
-        input_user = ft.TextField(label="Usuario", width=300)
-        input_pass = ft.TextField(label="Contraseña", password=True, width=300)
+        input_user = ft.TextField(label="Usuario", width=300, border_radius=10)
+        input_pass = ft.TextField(
+            label="Contraseña", 
+            password=True, 
+            can_reveal_password=True, 
+            width=300,
+            border_radius=10
+        )
+
+        def cerrar_dialogo(e):
+            dialogo.open = False
+            page.update()
+
+        def guardar(e):
+            if not input_user.value or not input_pass.value:
+                mostrar_alerta("Completa todos los campos")
+                return
+            
+            if crear_usuario(input_user.value, input_pass.value):
+                dialogo.open = False
+                cargar_lista()
+                mostrar_alerta("Usuario creado correctamente", False)
+            else:
+                mostrar_alerta("Error al crear el usuario")
+            page.update()
+
+        dialogo = ft.AlertDialog(
+            title=ft.Text("Crear Nuevo Usuario"),
+            content=ft.Column(
+                [
+                    ft.Text("Ingresa las credenciales para el nuevo acceso local."),
+                    input_user, 
+                    input_pass
+                ], 
+                tight=True,
+                spacing=15
+            ),
+            actions=[
+                ft.TextButton("Cancelar", on_click=cerrar_dialogo),
+                ft.ElevatedButton("Crear Usuario", bgcolor=ft.Colors.BLUE_700, color="white", on_click=guardar)
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+
+        page.overlay.append(dialogo)
+        dialogo.open = True
+        page.update()
 
         def guardar(e):
             if crear_usuario(input_user.value, input_pass.value):

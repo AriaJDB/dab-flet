@@ -27,7 +27,7 @@ def hacer_backup(database, user, password, ruta_archivo):
                 stdout=f, 
                 stderr=subprocess.PIPE, 
                 text=True,
-                shell=False # Con ruta absoluta, es mejor shell=False
+                shell=False
             )
 
         if proceso.returncode != 0:

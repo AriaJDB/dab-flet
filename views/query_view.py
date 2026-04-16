@@ -72,7 +72,6 @@ def query_view(page: ft.Page):
         try:
             resultado = ejecutar_query(dropdown_db.value, query)
 
-            # Caso SELECT
             if resultado["tipo"] == "select":
                 columnas = resultado["columnas"]
                 filas = resultado["filas"]
@@ -95,7 +94,6 @@ def query_view(page: ft.Page):
 
                 mostrar_alerta(f"Consulta ejecutada correctamente. Filas: {len(filas)}", False)
 
-            # Caso INSERT/UPDATE/DELETE
             else:
                 resultados_container.content = ft.Container(
                     content=ft.Text(

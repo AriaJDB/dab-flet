@@ -7,33 +7,43 @@ def login(username, password):
             user=username,
             password=password
         )
-
         conn.close()
         return True
-
-    except:
+    except mysql.connector.Error as err:
+        print(f"ERROR LOGIN: {err}")
         return False
 
 
-def obtener_privilegios(admin_user, admin_pass, username):
+def obtener_privilegios(username, password):
+    from services.user_service import obtener_permisos_por_bd
+
     try:
+        permisos_bd = obtener_permisos_por_bd(username)
+
+        es_admin = False
         conn = mysql.connector.connect(
             host="localhost",
-            user=admin_user,
-            password=admin_pass
+            user=username,
+            password=password
         )
-
         cursor = conn.cursor()
-
         cursor.execute(f"SHOW GRANTS FOR '{username}'@'localhost'")
         grants = cursor.fetchall()
-
         conn.close()
 
-        permisos = " ".join([g[0] for g in grants])
+        permisos_bd = obtener_permisos_por_bd(username)
+        es_admin = False
 
-        return permisos
+        for (grant,) in grants:
+            if "ALL PRIVILEGES" in grant.upper() and "*.*" in grant:
+                es_admin = True
+                break
+
+        return {
+            "es_admin": es_admin,
+            "permisos_bd": permisos_bd
+        }
 
     except Exception as e:
         print("ERROR PRIVILEGIOS:", e)
-        return ""
+        return {"es_admin": False, "permisos_bd": {}}

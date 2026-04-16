@@ -6,6 +6,7 @@ from views.backup_view import backup_view
 from views.user_view import user_view
 from views.metrics_view import metrics_view
 from views.query_view import query_view
+from services.user_service import obtener_permisos_por_bd
 
 def main(page: ft.Page):
     page.title = "LatteDB Manager"
@@ -22,7 +23,11 @@ def main(page: ft.Page):
     page.bgcolor = ft.Colors.BLUE_GREY_50
     page.padding = 0
 
-    page.session_data = {"user": None, "permisos": ""}
+    page.session_data = {
+        "user": None,
+        "permisos": "",
+        "permisos_bd": {}
+    }
 
     page.dark_theme = ft.Theme(
         color_scheme=ft.ColorScheme(
@@ -112,7 +117,7 @@ def main(page: ft.Page):
         page.controls.clear()
         sidebar_items.controls.clear()
         permisos = page.session_data["permisos"]
-        es_admin = "ALL PRIVILEGES" in permisos
+        es_admin = permisos.get("es_admin", False) if isinstance(permisos, dict) else False
 
         sidebar_items.controls.append(
             ft.Container(
@@ -128,10 +133,11 @@ def main(page: ft.Page):
         )
 
         sidebar_items.controls.append(sidebar_button("Explorador Datos", ft.Icons.STORAGE_ROUNDED, "db"))
+        sidebar_items.controls.append(sidebar_button("Editor SQL", ft.Icons.TERMINAL_ROUNDED, "query"))
 
         if es_admin:
             sidebar_items.controls.extend([
-                sidebar_button("Editor SQL", ft.Icons.TERMINAL_ROUNDED, "query"),
+                
                 sidebar_button("Importar CSV", ft.Icons.FILE_OPEN_ROUNDED, "csv"),
                 sidebar_button("Backups", ft.Icons.BACKUP_ROUNDED, "backup"),
                 sidebar_button("Usuarios", ft.Icons.PEOPLE_ALT_ROUNDED, "users"),
@@ -174,6 +180,12 @@ def main(page: ft.Page):
     def on_login(user, permisos):
         page.session_data["user"] = user
         page.session_data["permisos"] = permisos
+
+        if "ALL PRIVILEGES" in permisos:
+            page.session_data["permisos_bd"] = {"*": ["SELECT", "INSERT", "UPDATE"]}
+        else:
+            page.session_data["permisos_bd"] = obtener_permisos_por_bd(user)
+
         mostrar_menu()
 
     def ir_a_login():

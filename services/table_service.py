@@ -35,8 +35,6 @@ def obtener_tablas(database):
 
     return tablas
 
-
-# 📊 Obtener columnas
 def obtener_columnas(database, tabla):
     conn = conectar()
     cursor = conn.cursor()
@@ -80,7 +78,7 @@ def crear_tabla(database, nombre_tabla, columnas):
 
         cursor.execute(query)
 
-        conn.commit()  # 🔥 ESTA ES LA CLAVE
+        conn.commit() 
 
     except Exception as e:
         print("ERROR SQL:", e)
@@ -90,7 +88,6 @@ def crear_tabla(database, nombre_tabla, columnas):
         conn.close()
 
 
-# 🗑️ Eliminar tabla
 def eliminar_tabla(database, nombre_tabla):
     conn = conectar()
     cursor = conn.cursor()
@@ -107,7 +104,7 @@ def obtener_datos(base_datos, tabla):
     cursor = conn.cursor()
     
     try:
-        # ✅ Agregamos el USE para seleccionar la base de datos
+
         cursor.execute(f"USE {base_datos}")
         
         query = f"SELECT * FROM {tabla}"
@@ -126,7 +123,6 @@ def eliminar_registro(database, tabla, id_valor):
     cursor = conn.cursor()
     try:
         cursor.execute(f"USE {database}")
-        # Usamos %s para evitar inyección SQL, es más profesional
         query = f"DELETE FROM {tabla} WHERE id = %s"
         cursor.execute(query, (id_valor,))
         conn.commit()

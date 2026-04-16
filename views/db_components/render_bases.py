@@ -1,11 +1,11 @@
 import flet as ft
 from services.db_service import obtener_bases, crear_base, eliminar_base
 
-def get_bases_ui(es_admin, tiene_acceso, ir_a_nivel, mostrar_alerta, get_style, cache_manager, datos_filtrados=None):
+def get_bases_ui(es_admin, tiene_acceso, ir_a_nivel, mostrar_alerta, get_style, cache_manager,session_data, datos_filtrados=None):
     controls = []
     
     if datos_filtrados is None:
-        data = obtener_bases()
+        data = obtener_bases(session_data)
         cache_manager["datos"] = data
     else:
         data = datos_filtrados

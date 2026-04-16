@@ -11,11 +11,9 @@ import asyncio
 
 
 def metrics_view(page: ft.Page):
-    # 🔁 Si la vista ya existe, simplemente la retornamos
     if hasattr(page, "metrics_view_instance"):
         return page.metrics_view_instance
 
-    # 🧠 Estado global persistente
     if not hasattr(page, "metrics_state"):
         page.metrics_state = {
             "conexiones_data": [],
@@ -26,7 +24,6 @@ def metrics_view(page: ft.Page):
 
     state = page.metrics_state
 
-    # 🎨 Configuración de tema
     is_dark = page.theme_mode == ft.ThemeMode.DARK
     card_bg = (
         ft.Colors.SURFACE_CONTAINER_HIGHEST
@@ -35,7 +32,6 @@ def metrics_view(page: ft.Page):
     )
     text_secondary = ft.Colors.BLUE_GREY_400
 
-    # 📊 Controles de métricas
     conexiones_val = ft.Text("0", size=34, weight=ft.FontWeight.BOLD)
     qps_val = ft.Text("0.0", size=34, weight=ft.FontWeight.BOLD)
     threads_val = ft.Text("0", size=24, weight=ft.FontWeight.BOLD)
@@ -43,7 +39,6 @@ def metrics_view(page: ft.Page):
     bytes_out_val = ft.Text("0", size=24, weight=ft.FontWeight.BOLD)
     slow_val = ft.Text("0", size=24, weight=ft.FontWeight.BOLD)
 
-    # Guardar referencias para el loop
     page.metrics_controls = {
         "conexiones": conexiones_val,
         "qps": qps_val,
@@ -53,7 +48,6 @@ def metrics_view(page: ft.Page):
         "slow": slow_val,
     }
 
-    # 📈 Contenedor de gráfica
     chart = ft.Row(
         height=220,
         spacing=3,
@@ -62,7 +56,6 @@ def metrics_view(page: ft.Page):
     )
     page.metrics_controls["chart"] = chart
 
-    # 🧩 Función para crear tarjetas de métricas
     def metric_card(title, value_control, icon, color):
         return ft.Container(
             expand=True,
@@ -87,7 +80,6 @@ def metrics_view(page: ft.Page):
             ),
         )
 
-    # 📊 Función para actualizar la gráfica
     def actualizar_chart():
         chart.controls.clear()
         for i in range(len(state["conexiones_data"])):
@@ -117,7 +109,6 @@ def metrics_view(page: ft.Page):
                 )
             )
 
-    # 🔁 Loop asincrónico único
     async def loop():
         while True:
             try:
@@ -129,7 +120,6 @@ def metrics_view(page: ft.Page):
 
                 now = time.time()
 
-                # 📊 Cálculo de QPS
                 if state["last_queries"] is not None:
                     delta_q = queries - state["last_queries"]
                     delta_t = now - state["last_time"]
@@ -137,13 +127,11 @@ def metrics_view(page: ft.Page):
                 else:
                     qps = 0
 
-                # 📈 Guardar histórico
                 state["conexiones_data"].append(conexiones)
                 state["queries_data"].append(qps)
                 state["conexiones_data"] = state["conexiones_data"][-40:]
                 state["queries_data"] = state["queries_data"][-40:]
 
-                # 🧾 Actualizar UI
                 controls = page.metrics_controls
                 controls["conexiones"].value = str(conexiones)
                 controls["qps"].value = f"{qps:.2f}"
@@ -164,12 +152,10 @@ def metrics_view(page: ft.Page):
 
             await asyncio.sleep(2)
 
-    # 🚀 Iniciar el loop solo una vez
     if not hasattr(page, "metrics_task_started"):
         page.run_task(loop)
         page.metrics_task_started = True
 
-    # 🧱 Layout principal
     view = ft.Column(
         [
             ft.Column(
@@ -187,7 +173,6 @@ def metrics_view(page: ft.Page):
             ),
             ft.Divider(height=20, color=ft.Colors.TRANSPARENT),
 
-            # KPIs principales
             ft.Row(
                 [
                     metric_card(
@@ -206,7 +191,6 @@ def metrics_view(page: ft.Page):
                 spacing=20,
             ),
 
-            # Métricas secundarias
             ft.Row(
                 [
                     metric_card(
@@ -237,7 +221,6 @@ def metrics_view(page: ft.Page):
                 spacing=20,
             ),
 
-            # Gráfica
             ft.Container(
                 expand=True,
                 padding=25,
@@ -280,7 +263,6 @@ def metrics_view(page: ft.Page):
         scroll=ft.ScrollMode.ADAPTIVE,
     )
 
-    # Guardar instancia para reutilizarla
     page.metrics_view_instance = view
 
     return view

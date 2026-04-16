@@ -61,7 +61,7 @@ def login_view(page: ft.Page, on_login):
             mostrar_alerta("Credenciales incorrectas")
             return
 
-        permisos = obtener_privilegios("root", "latte", u)
+        permisos = obtener_privilegios(u,p)
 
         mostrar_alerta("Login correcto", False)
 

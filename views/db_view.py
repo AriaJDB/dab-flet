@@ -93,62 +93,27 @@ def db_view(page: ft.Page, session_data):
         main_content.controls.clear()
 
         if estado["nivel"] == "bases":
-            filtrados = [
-                d for d in cache_manager["datos"]
-                if termino in d.lower()
-            ]
+            filtrados = [d for d in cache_manager["datos"] if termino in d.lower()]
             main_content.controls.extend(
-                get_bases_ui(
-                    es_admin,
-                    tiene_acceso_db,
-                    ir_a_nivel,
-                    mostrar_alerta,
-                    get_list_container_style,
-                    cache_manager,
-                    filtrados,
-                    session_data
-                )
+                get_bases_ui(es_admin, tiene_acceso_db, ir_a_nivel, mostrar_alerta, 
+                             get_list_container_style, cache_manager, session_data, filtrados)
             )
 
         elif estado["nivel"] == "tablas":
-            filtrados = [
-                t for t in cache_manager["datos"]
-                if termino in t.lower()
-            ]
+            filtrados = [t for t in cache_manager["datos"] if termino in t.lower()]
             main_content.controls.extend(
-                get_tablas_ui(
-                    estado["db_seleccionada"],
-                    es_admin,
-                    permisos_bases,
-                    tiene_permiso,
-                    ir_a_nivel,
-                    get_list_container_style,
-                    cache_manager,
-                    page,
-                    filtrados
-                )
+                get_tablas_ui(estado["db_seleccionada"], es_admin, permisos_bases,
+                              lambda p: tiene_permiso(estado["db_seleccionada"], p),
+                              ir_a_nivel, get_list_container_style, cache_manager, page, filtrados)
             )
 
         elif estado["nivel"] == "datos":
-            filtrados = [
-                row for row in cache_manager["datos"]
-                if any(termino in str(c).lower() for c in row)
-            ]
+            filtrados = [row for row in cache_manager["datos"] if any(termino in str(c).lower() for c in row)]
             main_content.controls.extend(
-                get_datos_ui(
-                    estado["db_seleccionada"],
-                    estado["tabla_seleccionada"],
-                    es_admin,
-                    permisos_bases,
-                    tiene_permiso,
-                    ir_a_nivel,
-                    get_list_container_style,
-                    cache_manager,
-                    page,
-                    filtrados
-                )
+                get_datos_ui(estado["db_seleccionada"], estado["tabla_seleccionada"], es_admin,
+                             permisos_bases.get(estado["db_seleccionada"], []),
+                             ir_a_nivel, get_list_container_style, cache_manager, page, filtrados)
             )
-
         page.update()
 
     search_field = ft.TextField(

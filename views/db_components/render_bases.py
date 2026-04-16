@@ -12,10 +12,18 @@ def get_bases_ui(es_admin, tiene_acceso, ir_a_nivel, mostrar_alerta, get_style, 
 
     if es_admin:
         input_db = ft.TextField(label="Nueva Base", width=300, height=45, border_radius=10)
+        
+        def validar_y_crear(e):
+            if not input_db.value.strip():
+                mostrar_alerta("El nombre de la base no puede estar vacío")
+                return
+            crear_base(input_db.value)
+            ir_a_nivel("bases")
+            mostrar_alerta("Base creada", False)
+
         controls.append(ft.Row([
             input_db, 
-            ft.ElevatedButton("Crear", icon=ft.Icons.ADD, 
-                on_click=lambda _: [crear_base(input_db.value), ir_a_nivel("bases"), mostrar_alerta("Base creada", False)])
+            ft.ElevatedButton("Crear", icon=ft.Icons.ADD, on_click=validar_y_crear)
         ]))
     
     list_items = []

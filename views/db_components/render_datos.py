@@ -16,27 +16,52 @@ def get_datos_ui(db, tabla, es_admin, permisos, ir_a_nivel, get_style, cache, pa
             nombre_col = col[0]
             tipo_col = col[1].upper()
             
+            if nombre_col.lower() == "id":
+                continue
+
             if "INT" in tipo_col:
-                input_ctrl = ft.TextField(label=f"{nombre_col} (Entero)", input_filter=ft.NumbersOnlyInputFilter(), keyboard_type=ft.KeyboardType.NUMBER)
+                input_ctrl = ft.TextField(
+                    label=f"{nombre_col} (Entero)",
+                    input_filter=ft.NumbersOnlyInputFilter(),
+                    keyboard_type=ft.KeyboardType.NUMBER
+                )
+            
             elif "VARCHAR" in tipo_col:
-                input_ctrl = ft.TextField(label=f"{nombre_col} (Texto)", max_length=50)
+                input_ctrl = ft.TextField(
+                    label=f"{nombre_col}",
+                    max_length=255,
+                )
+            
             elif "DATE" in tipo_col:
                 tf_fecha = ft.TextField(label=f"{nombre_col} (YYYY-MM-DD)", read_only=True, expand=True)
+                
                 def confirmar_fecha(e_date):
                     if e_date.control.value:
                         tf_fecha.value = e_date.control.value.strftime('%Y-%m-%d')
                         page.update()
+
                 datepicker = ft.DatePicker(on_change=confirmar_fecha)
                 page.overlay.append(datepicker)
+                
                 def abrir_picker(e):
                     datepicker.open = True
                     page.update()
-                input_ctrl = ft.Row([tf_fecha, ft.IconButton(ft.Icons.CALENDAR_MONTH, on_click=abrir_picker)], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
+
+                input_ctrl = ft.Row([
+                    tf_fecha,
+                    ft.IconButton(ft.Icons.CALENDAR_MONTH, on_click=abrir_picker)
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
                 input_ctrl.data = tf_fecha
+
             elif "BOOL" in tipo_col or "TINYINT(1)" in tipo_col:
                 input_ctrl = ft.Switch(label=f"{nombre_col}", value=False)
+
             elif "FLOAT" in tipo_col or "DECIMAL" in tipo_col:
-                input_ctrl = ft.TextField(label=f"{nombre_col} (Decimal)", input_filter=ft.InputFilter(allow=True, regex_string=r"^[0-9]*\.?[0-9]*$", replacement_string=""))
+                input_ctrl = ft.TextField(
+                    label=f"{nombre_col} (Decimal)",
+                    input_filter=ft.InputFilter(allow=True, regex_string=r"^[0-9]*\.?[0-9]*$", replacement_string="")
+                )
+            
             else:
                 input_ctrl = ft.TextField(label=f"{nombre_col}")
 
@@ -44,14 +69,29 @@ def get_datos_ui(db, tabla, es_admin, permisos, ir_a_nivel, get_style, cache, pa
             columnas_layout.controls.append(input_ctrl)
 
         def guardar_nuevo_registro(e):
-            dict_final = {nom: (ctrl.data.value if isinstance(ctrl, ft.Row) else (1 if isinstance(ctrl, ft.Switch) and ctrl.value else (0 if isinstance(ctrl, ft.Switch) else ctrl.value))) for nom, ctrl in campos_input.items()}
+
+            dict_final = {}
+            for nom, ctrl in campos_input.items():
+                if isinstance(ctrl, ft.Row):
+                    dict_final[nom] = ctrl.data.value
+                elif isinstance(ctrl, ft.Switch):
+                    dict_final[nom] = 1 if ctrl.value else 0
+                else:
+                    dict_final[nom] = ctrl.value
+
             try:
                 insertar_registro(db, tabla, dict_final)
                 dialogo.open = False
                 page.update()
                 ir_a_nivel("datos", tabla)
+                page.snack_bar = ft.SnackBar(ft.Text("Registro insertado con éxito"), bgcolor="green")
+                page.snack_bar.open = True
             except Exception as ex:
-                print(f"Error: {ex}")
+                print(f"Error al insertar: {ex}")
+                page.snack_bar = ft.SnackBar(ft.Text(f"Error: {ex}"))
+                page.snack_bar.open = True
+            
+            page.update()
 
         dialogo = ft.AlertDialog(
             title=ft.Text(f"Nuevo Registro en {tabla}", weight="bold"),
@@ -61,6 +101,7 @@ def get_datos_ui(db, tabla, es_admin, permisos, ir_a_nivel, get_style, cache, pa
                 ft.ElevatedButton("Guardar", bgcolor=ft.Colors.BLUE_700, color="white", on_click=guardar_nuevo_registro)
             ],
         )
+        
         page.overlay.append(dialogo)
         dialogo.open = True
         page.update()
@@ -69,17 +110,16 @@ def get_datos_ui(db, tabla, es_admin, permisos, ir_a_nivel, get_style, cache, pa
         ft.ElevatedButton(
             "Insertar Fila", 
             icon=ft.Icons.ADD, 
-            visible=es_admin or "INSERT" in permisos, 
+            visible=es_admin or "INSERT" in permisos,
             on_click=abrir_modal_insertar
         ),
         ft.IconButton(ft.Icons.REFRESH, on_click=lambda _: ir_a_nivel("datos", tabla))
     ]))
 
     if data:
-        columns = [ft.DataColumn(ft.Text(c[0], weight="bold", size=13)) for c in cols_raw]
-       
+        columns = [ft.DataColumn(ft.Text(c[0].upper(), weight="bold", size=13)) for c in cols_raw]
         if es_admin or "UPDATE" in permisos: 
-            columns.append(ft.DataColumn(ft.Text("Acciones", weight="bold")))
+            columns.append(ft.DataColumn(ft.Text("ACCIONES", weight="bold")))
 
         rows = []
         for fila in data:
@@ -95,7 +135,12 @@ def get_datos_ui(db, tabla, es_admin, permisos, ir_a_nivel, get_style, cache, pa
                 ))
             rows.append(ft.DataRow(cells=cells))
 
-        dt = ft.DataTable(heading_row_color="black12", columns=columns, rows=rows)
+        dt = ft.DataTable(
+            heading_row_color=ft.Colors.BLACK12,
+            columns=columns,
+            rows=rows,
+            column_spacing=40
+        )
         controls.append(ft.Container(content=ft.Row([dt], scroll="always"), **get_style(), padding=10))
     else:
         controls.append(ft.Text("Sin registros.", italic=True))
